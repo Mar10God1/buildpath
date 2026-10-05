@@ -32,7 +32,8 @@ export function LoginForm() {
       return;
     }
 
-    window.location.href = "/setup";
+    const next = new URLSearchParams(window.location.search).get("next");
+    window.location.href = next || "/setup";
   }
 
   return (
