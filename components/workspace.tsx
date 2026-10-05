@@ -44,7 +44,7 @@ export function Workspace(){
     <button className="project-switcher" onClick={()=>setSwitcher(!switcher)}><span><strong>{project.name}</strong><small>{location||project.project_type||"Project"}</small></span><span>⌄</span></button>
     {switcher&&<div className="switcher-menu">{projects.map(p=><button key={p.id} className={p.id===project.id?"selected":""} onClick={()=>{setSwitcher(false);load(p)}}>{p.name}<small>{[p.city,p.state].filter(Boolean).join(", ")}</small></button>)}<a href="/setup">＋ Add project</a></div>}
    </div>
-   <nav>{nav.map(n=><button key={n} className={n===section?"nav-active":""} onClick={()=>{if(n==="Vendors & Subs"){window.location.href="/vendors?project="+project.id}else setSection(n)}}>{n}</button>)}</nav>
+   <nav>{nav.map(n=><button key={n} className={n===section?"nav-active":""} onClick={()=>{if(n==="Vendors & Subs"){window.location.href="/vendors?project="+project!.id}else setSection(n)}}>{n}</button>)}</nav>
    <div className="sidebar-bottom"><span className="sidebar-icon">▦</span><span><strong>Project memory</strong><small>{evidence.length} evidence · {events.length} events</small></span><button className="logout-mini" onClick={logout}>Log out</button></div>
   </aside>
   <main className="main">
