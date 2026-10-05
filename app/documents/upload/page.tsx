@@ -93,5 +93,5 @@ export default function UploadExtractPage(){
    {candidates.length?<div className="candidate-list">{candidates.map(c=><article key={c.id}><div><span className="type">{c.candidate_type}</span><h4>{typeof c.proposed_value.title==="string"?c.proposed_value.title:(c.candidate_key||"Extracted fact")}</h4><p>{summary(c)}</p><small>{c.confidence!==null?Math.round(c.confidence*100)+"% confidence":""}</small></div><div className="review-actions"><button onClick={()=>void review(c,"accepted")}>Accept</button><button onClick={()=>void review(c,"rejected")}>Reject</button></div></article>)}</div>:<div className="empty-state"><p>No extracted facts are waiting for review.</p></div>}
   </section>
   <section className="panel page-panel"><p className="eyebrow">RECENT EVIDENCE</p><h3>Uploaded project record</h3>{evidence.length?<div className="evidence-list">{evidence.map(e=><article key={e.id}><span className="doc-icon">▤</span><div><span className="type">{e.evidence_type.replaceAll("_"," ")}</span><h4>{e.title||"Untitled evidence"}</h4><p>{new Date(e.created_at).toLocaleString()}</p></div></article>)}</div>:<div className="empty-state"><p>No uploaded evidence yet.</p></div>}</section>
- </main>
+ </main></div>
 }
