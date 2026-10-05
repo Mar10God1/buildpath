@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 type FormState = {
   name: string;
@@ -28,24 +29,115 @@ const initial: FormState = {
   budget: "",
 };
 
+function dollarsToNumber(value: string) {
+  const cleaned = value.replace(/[^0-9.-]/g, "");
+  return cleaned ? Number(cleaned) : null;
+}
+
 export function ProjectSetup() {
   const [form, setForm] = useState(initial);
   const [step, setStep] = useState(1);
   const [saved, setSaved] = useState(false);
+  const [projectId, setProjectId] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   const progress = useMemo(() => Math.round((step / 3) * 100), [step]);
   const update = (key: keyof FormState, value: string) => setForm((f) => ({ ...f, [key]: value }));
 
-  function next() {
-    setStep((s) => Math.min(3, s + 1));
-  }
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) {
+        window.location.href = "/login";
+        return;
+      }
+      setCheckingAuth(false);
+    });
+  }, []);
 
-  function back() {
-    setStep((s) => Math.max(1, s - 1));
-  }
+  async function finish() {
+    setBusy(true);
+    setError("");
 
-  function finish() {
+    const supabase = createClient();
+    const { data: userResult, error: userError } = await supabase.auth.getUser();
+    const user = userResult.user;
+
+    if (userError || !user) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const organizationId = crypto.randomUUID();
+    const newProjectId = crypto.randomUUID();
+
+    const { error: orgError } = await supabase.from("organizations").insert({
+      id: organizationId,
+      name: form.name ? `${form.name} Team` : "My BuildPath Team",
+      created_by: user.id,
+    });
+
+    if (orgError) {
+      setBusy(false);
+      setError(orgError.message);
+      return;
+    }
+
+    const { error: memberError } = await supabase.from("organization_members").insert({
+      organization_id: organizationId,
+      user_id: user.id,
+      role: "owner",
+    });
+
+    if (memberError) {
+      setBusy(false);
+      setError(memberError.message);
+      return;
+    }
+
+    const { error: projectError } = await supabase.from("projects").insert({
+      id: newProjectId,
+      organization_id: organizationId,
+      name: form.name || "Untitled Project",
+      address: form.address || null,
+      city: form.city || null,
+      state: form.state || null,
+      project_type: form.projectType || null,
+      baseline_start: form.startDate || null,
+      target_finish: form.targetFinish || null,
+      original_budget: dollarsToNumber(form.budget),
+      created_by: user.id,
+    });
+
+    if (projectError) {
+      setBusy(false);
+      setError(projectError.message);
+      return;
+    }
+
+    const companies = [
+      form.owner ? { organization_id: organizationId, name: form.owner, company_type: "owner" } : null,
+      form.generalContractor ? { organization_id: organizationId, name: form.generalContractor, company_type: "general_contractor" } : null,
+    ].filter(Boolean);
+
+    if (companies.length) {
+      const { error: companyError } = await supabase.from("companies").insert(companies);
+      if (companyError) {
+        setBusy(false);
+        setError(companyError.message);
+        return;
+      }
+    }
+
+    setProjectId(newProjectId);
     setSaved(true);
+    setBusy(false);
+  }
+
+  if (checkingAuth) {
+    return <main className="setup-shell"><section className="setup-card"><p>Checking your BuildPath session…</p></section></main>;
   }
 
   if (saved) {
@@ -53,12 +145,9 @@ export function ProjectSetup() {
       <main className="setup-shell">
         <section className="setup-card setup-complete">
           <span className="setup-kicker">PROJECT CREATED</span>
-          <h1>{form.name || "Your project"} is ready for its memory.</h1>
-          <p>
-            The next layer will connect schedules, people, companies, documents,
-            decisions, cost events and field evidence into one project graph.
-          </p>
-          <a className="primary-action" href="/">Open project overview</a>
+          <h1>{form.name || "Your project"} now has a project memory.</h1>
+          <p>Its baseline, organization and initial companies are stored in the separate BuildPath database. Next we can ingest schedules, documents, meetings and field evidence into this project.</p>
+          <a className="primary-action" href={`/?project=${projectId}`}>Open project overview</a>
         </section>
       </main>
     );
@@ -96,10 +185,7 @@ export function ProjectSetup() {
           <div className="form-grid">
             <label className="wide">Owner / Developer<input value={form.owner} onChange={(e) => update("owner", e.target.value)} placeholder="Owner organization" /></label>
             <label className="wide">General contractor<input value={form.generalContractor} onChange={(e) => update("generalContractor", e.target.value)} placeholder="General contractor" /></label>
-            <div className="setup-note wide">
-              <span>CONNECTED MODEL</span>
-              <p>Companies and people become reusable records. Later, emails, RFIs, change orders and meetings can all connect back to the same company or person instead of creating duplicate data.</p>
-            </div>
+            <div className="setup-note wide"><span>CONNECTED MODEL</span><p>Companies and people become reusable records. Later, emails, RFIs, change orders and meetings can all connect back to the same company or person instead of creating duplicate data.</p></div>
           </div>
         )}
 
@@ -108,16 +194,17 @@ export function ProjectSetup() {
             <label>Baseline start<input type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)} /></label>
             <label>Target completion<input type="date" value={form.targetFinish} onChange={(e) => update("targetFinish", e.target.value)} /></label>
             <label className="wide">Original budget<input value={form.budget} onChange={(e) => update("budget", e.target.value)} placeholder="$12,400,000" /></label>
-            <div className="setup-note wide">
-              <span>DON&apos;T KNOW EVERYTHING?</span>
-              <p>That is expected. BuildPath is designed to reconstruct missing project history from evidence and preserve uncertainty rather than forcing made-up precision.</p>
-            </div>
+            <div className="setup-note wide"><span>DON&apos;T KNOW EVERYTHING?</span><p>That is expected. BuildPath is designed to reconstruct missing project history from evidence and preserve uncertainty rather than forcing made-up precision.</p></div>
           </div>
         )}
 
+        {error && <div className="form-message">{error}</div>}
+
         <div className="setup-actions">
-          <button className="secondary-action" onClick={step === 1 ? () => history.back() : back}>{step === 1 ? "Cancel" : "Back"}</button>
-          {step < 3 ? <button className="primary-action" onClick={next}>Continue</button> : <button className="primary-action" onClick={finish}>Create project</button>}
+          <button className="secondary-action" onClick={() => step === 1 ? window.location.assign("/") : setStep((s) => Math.max(1, s - 1))}>{step === 1 ? "Cancel" : "Back"}</button>
+          {step < 3
+            ? <button className="primary-action" onClick={() => setStep((s) => Math.min(3, s + 1))}>Continue</button>
+            : <button className="primary-action" onClick={finish} disabled={busy}>{busy ? "Creating…" : "Create project"}</button>}
         </div>
       </section>
     </main>
