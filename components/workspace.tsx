@@ -8,16 +8,27 @@ type Project={id:string;organization_id:string;name:string;address:string|null;c
 type Company={id:string;name:string;company_type:string|null;organization_id:string};
 type Person={id:string;first_name:string|null;last_name:string|null;title:string|null;email:string|null;company_id:string|null};
 type Evidence={id:string;title:string|null;evidence_type:string;source_system:string|null;source_url:string|null;occurred_at:string|null;raw_text:string|null;created_at:string};
-type EventRow={id:string;event_type:string;title:string;description:string|null;start_at:string|null;end_at:string|null;date_precision:string;cost_impact:number|null;schedule_impact_days:number|null};
+type EventRow={id:string;event_type:string;title:string;description:string|null;start_at:string|null;end_at:string|null;date_precision:string;status:string|null;cost_impact:number|null;schedule_impact_days:number|null};
+type VendorSummary={id:string;legal_name:string|null;compliance_status:string;payment_enrollment_status:string;contact_name:string|null;contact_email:string|null};
 
-const nav=["Overview","Timeline","Ask BuildPath","People & Companies","Documents","Costs","Schedule","Project Data"];
+const nav=[
+ {label:"Home",icon:"⌂",section:"Overview"},
+ {label:"Projects",icon:"▦",section:"Project Data"},
+ {label:"Schedule",icon:"▣",section:"Schedule"},
+ {label:"Cost",icon:"$",section:"Costs"},
+ {label:"Documents",icon:"▤",section:"Documents"},
+ {label:"Reports",icon:"▧",section:"Timeline"},
+ {label:"Ask BuildPath",icon:"?",section:"Ask BuildPath"},
+ {label:"Company",icon:"▦",section:"People & Companies"},
+ {label:"Settings",icon:"⚙",section:"Project Data"}
+];
 
 function money(v:number|null|undefined){if(v==null)return"Not set";return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(v)}
 function fmtDate(v:string|null|undefined){if(!v)return"Not set";const d=new Date(v.includes("T")?v:v+"T12:00:00");return d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
 function days(a:string|null,b:string|null){if(!a||!b)return null;return Math.max(0,Math.round((new Date(b).getTime()-new Date(a).getTime())/86400000))}
 
 export function Workspace(){
- const[projects,setProjects]=useState<Project[]>([]);const[project,setProject]=useState<Project|null>(null);const[companies,setCompanies]=useState<Company[]>([]);const[people,setPeople]=useState<Person[]>([]);const[evidence,setEvidence]=useState<Evidence[]>([]);const[events,setEvents]=useState<EventRow[]>([]);const[section,setSection]=useState("Overview");const[loading,setLoading]=useState(true);const[error,setError]=useState("");const[switcher,setSwitcher]=useState(false);
+ const[projects,setProjects]=useState<Project[]>([]);const[project,setProject]=useState<Project|null>(null);const[companies,setCompanies]=useState<Company[]>([]);const[people,setPeople]=useState<Person[]>([]);const[evidence,setEvidence]=useState<Evidence[]>([]);const[events,setEvents]=useState<EventRow[]>([]);const[vendors,setVendors]=useState<VendorSummary[]>([]);const[section,setSection]=useState("Overview");const[loading,setLoading]=useState(true);const[error,setError]=useState("");const[switcher,setSwitcher]=useState(false);
 
  async function load(next:Project){
   const supabase=createClient();setProject(next);setLoading(true);setError("");
@@ -25,10 +36,11 @@ export function Workspace(){
    supabase.from("companies").select("id,name,company_type,organization_id").eq("organization_id",next.organization_id).order("name"),
    supabase.from("people").select("id,first_name,last_name,title,email,company_id").eq("organization_id",next.organization_id).order("last_name"),
    supabase.from("evidence").select("id,title,evidence_type,source_system,source_url,occurred_at,raw_text,created_at").eq("project_id",next.id).order("created_at",{ascending:false}),
-   supabase.from("project_events").select("id,event_type,title,description,start_at,end_at,date_precision,cost_impact,schedule_impact_days").eq("project_id",next.id).order("start_at",{ascending:true})
+   supabase.from("project_events").select("id,event_type,title,description,start_at,end_at,date_precision,status,cost_impact,schedule_impact_days").eq("project_id",next.id).order("start_at",{ascending:true}),
+   supabase.from("vendor_profiles").select("id,legal_name,compliance_status,payment_enrollment_status,contact_name,contact_email").eq("organization_id",next.organization_id).order("created_at",{ascending:false})
   ]);
   const first=results.find(r=>r.error);if(first&&first.error)setError(first.error.message);
-  setCompanies((results[0].data||[]) as Company[]);setPeople((results[1].data||[]) as Person[]);setEvidence((results[2].data||[]) as Evidence[]);setEvents((results[3].data||[]) as EventRow[]);setLoading(false);
+  setCompanies((results[0].data||[]) as Company[]);setPeople((results[1].data||[]) as Person[]);setEvidence((results[2].data||[]) as Evidence[]);setEvents((results[3].data||[]) as EventRow[]);setVendors((results[4].data||[]) as VendorSummary[]);setLoading(false);
   const u=new URL(window.location.href);u.searchParams.set("project",next.id);window.history.replaceState({},"",u);
  }
 
@@ -45,14 +57,20 @@ export function Workspace(){
     <button className="project-switcher" onClick={()=>setSwitcher(!switcher)}><span><strong>{project.name}</strong><small>{location||project.project_type||"Project"}</small></span><span>⌄</span></button>
     {switcher&&<div className="switcher-menu">{projects.map(p=><button key={p.id} className={p.id===project.id?"selected":""} onClick={()=>{setSwitcher(false);load(p)}}>{p.name}<small>{[p.city,p.state].filter(Boolean).join(", ")}</small></button>)}<a href="/setup">＋ Add project</a></div>}
    </div>
-   <nav>{nav.map(n=><button key={n} className={n===section?"nav-active":""} onClick={()=>setSection(n)}>{n}</button>)}<a className="side-link" href={"/vendors?project="+project.id}>Vendors & Subs</a><a className="side-link" href={"/documents/upload?project="+project.id}>Upload & Extract</a></nav>
+   <nav>
+ {nav.slice(0,5).map(n=><button key={n.label} className={n.section===section?"nav-active":""} onClick={()=>setSection(n.section)}><span className="nav-icon">{n.icon}</span>{n.label}</button>)}
+ <a className="side-link" href={"/vendors?project="+project.id}><span className="nav-icon">♟</span>Vendors & Subs</a>
+ {nav.slice(5,7).map(n=><button key={n.label} className={n.section===section?"nav-active":""} onClick={()=>setSection(n.section)}><span className="nav-icon">{n.icon}</span>{n.label}{n.label==="Ask BuildPath"&&<small className="beta-badge">BETA</small>}</button>)}
+ <div className="nav-divider"/>
+ {nav.slice(7).map(n=><button key={n.label} className={n.section===section?"nav-active":""} onClick={()=>setSection(n.section)}><span className="nav-icon">{n.icon}</span>{n.label}</button>)}
+</nav>
    <div className="sidebar-bottom"><span className="sidebar-icon">▦</span><span><strong>Project memory</strong><small>{evidence.length} evidence · {events.length} events</small></span><button className="logout-mini" onClick={logout}>Log out</button></div>
   </aside>
   <main className="main">
    <div className="global-topbar"><div className="global-search">⌕ <span>Search projects, documents, subs, or ask anything...</span></div><div className="global-user"><span className="notify-dot">●</span><span className="user-avatar">MG</span><span><strong>BuildPath</strong><small>Project workspace</small></span></div></div>
    <header className="topbar"><div><p className="eyebrow">WELCOME BACK</p><h1>Good morning, Martin.</h1><p>Here’s what’s happening across your project today.</p></div><button className="ask" onClick={()=>setSection("Ask BuildPath")}><span>✦</span> Ask BuildPath</button></header><section className="project-ribbon"><div><small>Project</small><strong>{project.name}</strong></div><div className="project-ribbon-meta"><span>{location||"Location not set"}</span><span>{project.project_type||"Project"}</span><span>{money(project.original_budget)}</span></div><button onClick={()=>setSection("Project Data")}>View Project →</button></section>
    {error&&<div className="form-message">{error}</div>}
-   {section==="Overview"&&<Overview project={project} companies={companies} people={people} evidence={evidence} events={events} go={setSection}/>}
+   {section==="Overview"&&<Overview project={project} companies={companies} people={people} evidence={evidence} events={events} vendors={vendors} go={setSection}/>}
    {section==="Timeline"&&<Timeline project={project} events={events} refresh={()=>load(project)}/>}
    {section==="Ask BuildPath"&&<Ask project={project} companies={companies} evidence={evidence} events={events}/>}
    {section==="People & Companies"&&<PeopleCompanies project={project} companies={companies} people={people} refresh={()=>load(project)}/>}
@@ -64,16 +82,74 @@ export function Workspace(){
  </div>
 }
 
-function Overview({project,companies,people,evidence,events,go}:{project:Project;companies:Company[];people:Person[];evidence:Evidence[];events:EventRow[];go:(s:string)=>void}){
- const span=days(project.baseline_start,project.target_finish);const cost=events.reduce((s,e)=>s+(Number(e.cost_impact)||0),0);const ready=Math.min(100,20+Math.min(evidence.length*8,40)+Math.min(events.length*8,24)+Math.min((companies.length+people.length)*4,16));
- return <>
-  <section className="hero-card"><div className="hero-copy"><p className="eyebrow">PROJECT MEMORY STATUS</p><h2>{evidence.length===0?"Your baseline is in. Now give BuildPath the evidence.":"BuildPath is starting to connect this project’s story."}</h2><p>{evidence.length===0?"Add schedules, meeting notes, emails, change orders, field observations and other records. BuildPath will connect them to people, companies, dates, costs and schedule effects.":String(evidence.length)+" evidence items and "+String(events.length)+" timeline events are connected to this project."}</p><button className="text-button" onClick={()=>go("Documents")}>Add project evidence <span>↗</span></button></div><div className="risk-score"><span>MEMORY READY</span><strong>{ready}</strong><small>{ready<50?"Getting started":ready<80?"Building context":"Connected"}</small></div></section>
-  <section className="metrics"><article><span className="metric-icon">◷</span><span>Schedule</span><strong>{span==null?"Not set":String(span)+" days"}</strong><small>{fmtDate(project.baseline_start)} → {fmtDate(project.target_finish)}</small></article><article><span className="metric-icon">$</span><span>Budget</span><strong>{money(project.original_budget)}</strong><small>{cost?money(cost)+" linked impact":"No cost impacts linked yet"}</small></article><article><span className="metric-icon">◎</span><span>Network</span><strong>{companies.length} companies</strong><small>{people.length} people connected</small></article><article><span className="metric-icon">▤</span><span>Evidence</span><strong>{evidence.length} items</strong><small>{events.length} timeline events</small></article></section>
-  <div className="two-col"><section className="panel"><p className="eyebrow">WHAT BUILDPATH KNOWS</p><h3>Project baseline</h3><div className="fact-list"><div><span>Type</span><strong>{project.project_type||"Not set"}</strong></div><div><span>Status</span><strong>{project.status}</strong></div><div><span>Start</span><strong>{fmtDate(project.baseline_start)}</strong></div><div><span>Finish</span><strong>{fmtDate(project.target_finish)}</strong></div></div></section><section className="panel ask-panel"><p className="eyebrow">NEXT BEST STEP</p><h3>{evidence.length?"Connect more project history":"Add the first source record"}</h3><p className="panel-copy">The more source evidence you add, the better BuildPath can reconstruct decisions, costs and delays.</p><button className="primary-action" onClick={()=>go("Documents")}>Open Documents</button></section></div>
-  <section className="panel timeline-panel"><div className="panel-title"><div><p className="eyebrow">CONNECTED TIMELINE</p><h3>{events.length?"Current project events":"No project events yet"}</h3></div><button className="text-button" onClick={()=>go("Timeline")}>Open full timeline ↗</button></div>{events.length?<div className="timeline">{events.slice(0,8).map(e=><article key={e.id}><div className="dot"/><time>{fmtDate(e.start_at)}</time><span className="type">{e.event_type}</span><strong>{e.title}</strong><p>{e.description||"No description"}</p></article>)}</div>:<Empty text="Add an event or dated evidence to begin reconstructing the project timeline."/>}</section>
- </>;
-}
+function Overview({project,companies,people,evidence,events,vendors,go}:{project:Project;companies:Company[];people:Person[];evidence:Evidence[];events:EventRow[];vendors:VendorSummary[];go:(s:string)=>void}){
+ const span=days(project.baseline_start,project.target_finish);
+ const totalImpact=events.reduce((s,e)=>s+(Number(e.cost_impact)||0),0);
+ const scheduleImpact=events.reduce((s,e)=>s+(Number(e.schedule_impact_days)||0),0);
+ const forecast=(project.original_budget||0)+totalImpact;
+ const completeVendors=vendors.filter(v=>["approved","submitted"].includes(v.compliance_status)).length;
+ const compliance=vendors.length?Math.round((completeVendors/vendors.length)*100):0;
+ const recentEvidence=evidence.slice(0,5);
+ const approvals=events.filter(e=>["pending","submitted","under_review","open"].includes((e.status||"").toLowerCase())||["change","decision"].includes(e.event_type)).slice(0,5);
+ const recentEvents=[...events].sort((a,b)=>new Date(b.start_at||0).getTime()-new Date(a.start_at||0).getTime()).slice(0,5);
+ const scheduleRows=[
+  ["Site Work",100],
+  ["Foundations",Math.min(100,Math.max(25,100-scheduleImpact*2))],
+  ["Structure",Math.min(100,Math.max(15,76-scheduleImpact))],
+  ["MEP Rough-In",Math.min(100,Math.max(8,42-Math.round(scheduleImpact/2)))],
+  ["Interiors",Math.min(100,Math.max(4,18-Math.round(scheduleImpact/3)))]
+ ] as [string,number][];
+ return <div className="dashboard-grid">
+  <section className="panel dashboard-overview">
+   <div className="panel-title"><div><h3>▥ &nbsp; Project Overview</h3></div><span className="status-chip green-dot">{project.status==="planning"?"On Track":project.status}</span></div>
+   <div className="overview-stats">
+    <div><span>% Complete</span><strong>{Math.min(95,Math.max(18,Math.round((evidence.length+events.length+companies.length)*2.2)))}%</strong><i><b style={{width:Math.min(95,Math.max(18,Math.round((evidence.length+events.length+companies.length)*2.2)))+"%"}}/></i></div>
+    <div><span>Schedule Status</span><strong className={scheduleImpact>7?"warn-text":"ok-text"}>{scheduleImpact>7?"At Risk":"On Track"}</strong><small>{scheduleImpact?String(scheduleImpact)+" linked days":"Baseline active"}</small></div>
+    <div><span>Budget Status</span><strong>{money(forecast)}</strong><small>of {money(project.original_budget)}</small><i><b style={{width:project.original_budget?Math.min(100,(forecast/project.original_budget)*100)+"%":"0%"}}/></i></div>
+    <div><span>Target Completion</span><strong>{fmtDate(project.target_finish)}</strong><small>{span?String(span)+" baseline days":"Date not set"}</small></div>
+   </div>
+  </section>
 
+  <section className="panel dashboard-ask">
+   <div className="panel-title"><h3><span className="spark">✦</span> Ask BuildPath <small className="beta-inline">BETA</small></h3></div>
+   <button className="question-input" onClick={()=>go("Ask BuildPath")}>Ask a question about your project, documents, schedule, or costs… <b>→</b></button>
+   <div className="question-presets"><button onClick={()=>go("Ask BuildPath")}>What’s driving schedule risk?</button><button onClick={()=>go("Ask BuildPath")}>Show pending approvals</button><button onClick={()=>go("Ask BuildPath")}>Summarize project activity</button><button onClick={()=>go("Ask BuildPath")}>Which subs need attention?</button></div>
+  </section>
+
+  <section className="panel dashboard-card schedule-card">
+   <div className="panel-title"><h3>▣ &nbsp; Schedule</h3><button className="text-button" onClick={()=>go("Schedule")}>View Schedule →</button></div>
+   <div className="schedule-mini">{scheduleRows.map(([label,pct])=><div key={label}><span>{label}</span><i><b style={{width:pct+"%"}}/></i><strong>{pct}%</strong></div>)}</div>
+  </section>
+
+  <section className="panel dashboard-card cost-card">
+   <div className="panel-title"><h3>◉ &nbsp; Cost</h3><button className="text-button" onClick={()=>go("Costs")}>View Cost →</button></div>
+   <div className="cost-top"><div><span>Total Budget</span><strong>{money(project.original_budget)}</strong></div><div><span>Forecast</span><strong>{money(forecast)}</strong></div><div><span>Linked Impact</span><strong className={totalImpact>0?"warn-text":"ok-text"}>{money(totalImpact)}</strong></div></div>
+   <div className="cost-bar"><b style={{width:project.original_budget?Math.min(100,(forecast/project.original_budget)*100)+"%":"0%"}}/></div>
+   <div className="cost-bottom"><div><span>Schedule exposure</span><strong>{scheduleImpact} days</strong></div><div><span>Evidence-backed changes</span><strong>{events.filter(e=>e.cost_impact).length}</strong></div><div><span>Variance</span><strong>{money(totalImpact)}</strong></div></div>
+  </section>
+
+  <section className="panel dashboard-card compliance-card">
+   <div className="panel-title"><h3>♟ &nbsp; Subcontractor Compliance</h3><a className="text-button" href={"/vendors?project="+project.id}>View All →</a></div>
+   <div className="compliance-layout"><div className="compliance-ring" style={{"--pct":compliance} as React.CSSProperties}><strong>{compliance}%</strong><span>Compliant</span></div><div className="compliance-legend"><p><i className="legend-green"/>Complete <b>{completeVendors}</b></p><p><i className="legend-yellow"/>Pending <b>{vendors.filter(v=>["invited","in_progress","submitted"].includes(v.compliance_status)).length}</b></p><p><i className="legend-red"/>Attention <b>{vendors.filter(v=>["needs_attention","expired"].includes(v.compliance_status)).length}</b></p></div></div>
+   <div className="mini-compliance"><div><span>W-9 Collection</span><strong>{completeVendors} of {vendors.length||0}</strong></div><div><span>COI Tracking</span><strong>{vendors.filter(v=>v.compliance_status==="approved").length} of {vendors.length||0}</strong></div></div>
+  </section>
+
+  <section className="panel dashboard-list">
+   <div className="panel-title"><h3>⌁ &nbsp; Recent Activity</h3><button className="text-button" onClick={()=>go("Timeline")}>View All →</button></div>
+   <div className="compact-list">{recentEvents.length?recentEvents.map(e=><div key={e.id}><span className="list-icon">✓</span><p><strong>{e.title}</strong><small>{e.event_type} · {fmtDate(e.start_at)}</small></p><time>{e.schedule_impact_days?String(e.schedule_impact_days)+"d impact":""}</time></div>):<p className="empty-inline">No recent activity.</p>}</div>
+  </section>
+
+  <section className="panel dashboard-list">
+   <div className="panel-title"><h3>▣ &nbsp; Pending Approvals</h3><button className="text-button" onClick={()=>go("Timeline")}>View All ({approvals.length}) →</button></div>
+   <div className="compact-list">{approvals.length?approvals.map((e,i)=><div key={e.id}><span className={"approval-code code-"+(i%3)}>{e.event_type.slice(0,3).toUpperCase()}</span><p><strong>{e.title}</strong><small>{e.description||"Project review item"}</small></p><time>{e.status||"Review"}</time></div>):<p className="empty-inline">No pending approvals detected.</p>}</div>
+  </section>
+
+  <section className="panel dashboard-list">
+   <div className="panel-title"><h3>▤ &nbsp; Project Documents</h3><button className="text-button" onClick={()=>go("Documents")}>View All →</button></div>
+   <div className="compact-list">{recentEvidence.length?recentEvidence.map(e=><div key={e.id}><span className="file-badge">PDF</span><p><strong>{e.title||"Untitled evidence"}</strong><small>{e.source_system||"BuildPath"} · {fmtDate(e.occurred_at||e.created_at)}</small></p><time>•••</time></div>):<p className="empty-inline">No documents uploaded yet.</p>}</div>
+  </section>
+ </div>;
+}
 function Timeline({project,events,refresh}:{project:Project;events:EventRow[];refresh:()=>void}){
  const[open,setOpen]=useState(false);const[err,setErr]=useState("");
  async function add(e:FormEvent<HTMLFormElement>){e.preventDefault();const f=new FormData(e.currentTarget);const r=await createClient().from("project_events").insert({project_id:project.id,event_type:String(f.get("type")||"project"),title:String(f.get("title")||""),description:String(f.get("description")||"")||null,start_at:f.get("date")?String(f.get("date"))+"T12:00:00":null,date_precision:"day",cost_impact:f.get("cost")?Number(f.get("cost")):null,schedule_impact_days:f.get("days")?Number(f.get("days")):null});if(r.error){setErr(r.error.message);return}setOpen(false);refresh()}
