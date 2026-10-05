@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { BuildPathLogo } from "@/components/buildpath-logo";
 
 type Project={id:string;organization_id:string;name:string;address:string|null;city:string|null;state:string|null;project_type:string|null;baseline_start:string|null;target_finish:string|null;original_budget:number|null;status:string};
 type Company={id:string;name:string;company_type:string|null;organization_id:string};
@@ -39,7 +40,7 @@ export function Workspace(){
  const location=[project.city,project.state].filter(Boolean).join(", ");
  return <div className="shell">
   <aside className="sidebar">
-   <div className="brand"><span className="brand-mark">⬡</span><span>BuildPath</span></div>
+   <BuildPathLogo/>
    <div className="switcher-wrap">
     <button className="project-switcher" onClick={()=>setSwitcher(!switcher)}><span><strong>{project.name}</strong><small>{location||project.project_type||"Project"}</small></span><span>⌄</span></button>
     {switcher&&<div className="switcher-menu">{projects.map(p=><button key={p.id} className={p.id===project.id?"selected":""} onClick={()=>{setSwitcher(false);load(p)}}>{p.name}<small>{[p.city,p.state].filter(Boolean).join(", ")}</small></button>)}<a href="/setup">＋ Add project</a></div>}
@@ -48,6 +49,7 @@ export function Workspace(){
    <div className="sidebar-bottom"><span className="sidebar-icon">▦</span><span><strong>Project memory</strong><small>{evidence.length} evidence · {events.length} events</small></span><button className="logout-mini" onClick={logout}>Log out</button></div>
   </aside>
   <main className="main">
+   <div className="global-topbar"><div className="global-search">⌕ <span>Search projects, documents, subs, or ask anything...</span></div><div className="global-user"><span className="notify-dot">●</span><span className="user-avatar">MG</span><span><strong>BuildPath</strong><small>Project workspace</small></span></div></div>
    <header className="topbar"><div><p className="eyebrow">{section.toUpperCase()}</p><h1>{project.name}</h1><p>{project.address?(project.address+" · "):""}{location}</p></div><button className="ask" onClick={()=>setSection("Ask BuildPath")}><span>✦</span> Ask BuildPath</button></header>
    {error&&<div className="form-message">{error}</div>}
    {section==="Overview"&&<Overview project={project} companies={companies} people={people} evidence={evidence} events={events} go={setSection}/>}
