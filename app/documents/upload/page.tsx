@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { AppSidebar } from "@/components/app-sidebar";
 
 type Project={id:string;name:string};
 type Candidate={id:string;candidate_type:string;candidate_key:string|null;proposed_value:Record<string,unknown>;confidence:number|null;status:string};
@@ -80,7 +81,7 @@ export default function UploadExtractPage(){
  }
 
  if(!project)return <main className="setup-shell"><section className="setup-card">Loading…</section></main>;
- return <main className="main standalone-page">
+ return <div className="shell"><AppSidebar projectId={project.id} active="Upload & Extract"/><main className="main standalone-page">
   <header className="topbar"><div><p className="eyebrow">UPLOAD & EXTRACT</p><h1>{project.name}</h1><p>Turn project files into connected evidence and proposed facts.</p></div><a className="secondary-action" href={"/?project="+project.id}>← Back to project</a></header>
   {msg&&<div className="form-message">{msg}</div>}
   <section className="panel page-panel">
