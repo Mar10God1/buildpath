@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { BuildPathLogo } from "@/components/buildpath-logo";
 
 type Invite={id:string;project_id:string;vendor_id:string;template_id:string;invited_email:string;status:string};
 type Vendor={id:string;legal_name:string|null;dba_name:string|null;ein:string|null;tax_classification:string|null;contact_name:string|null;contact_email:string|null;contact_phone:string|null;payment_enrollment_status:string;compliance_status:string};
@@ -51,20 +52,33 @@ export default function VendorOnboardingPage(){
  if(loading)return <main className="setup-shell"><section className="setup-card">Loading onboarding…</section></main>;
  if(!invite||!vendor)return <main className="setup-shell"><section className="setup-card"><h1>Vendor onboarding</h1><p>{msg||"Invitation not found."}</p></section></main>;
 
- return <main className="vendor-portal">
-  <section className="vendor-portal-card">
-   <div className="portal-brand"><span className="brand-mark">⬡</span> BuildPath</div>
-   <p className="eyebrow">VENDOR / SUBCONTRACTOR ONBOARDING</p><h1>{vendor.legal_name||"Complete your company profile"}</h1><p className="panel-copy">Provide the information and documents requested by the project team. You can return to this link to update your submission.</p>
-   {msg&&<div className="form-message">{msg}</div>}
-   <form className="portal-form" onSubmit={save}>
-    {reqs.map(r=><div className="portal-field" key={r.id}><label>{r.label}{r.is_required&&<span>*</span>}</label>{r.help_text&&<small>{r.help_text}</small>}
-     {r.requirement_type==="document"?<input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e=>upload(r,e)}/>:
-      r.requirement_type==="payment_enrollment"?<div className="secure-payment"><strong>Secure payment enrollment</strong><p>BuildPath does not place raw routing or bank account numbers in the ordinary project database. Payment enrollment will be completed through a secure/tokenized payment setup.</p><span>Status: {vendor.payment_enrollment_status.replaceAll("_"," ")}</span></div>:
-      r.requirement_type==="select"?<select name={r.id} defaultValue={responses[r.id]||((vendor as any)[r.field_key]||"")} required={r.is_required}><option value="">Select…</option><option>Sole proprietor</option><option>C Corporation</option><option>S Corporation</option><option>Partnership</option><option>LLC</option><option>Other</option></select>:
-      <input name={r.id} type={r.requirement_type==="email"?"email":r.requirement_type==="number"?"number":r.requirement_type==="date"?"date":"text"} defaultValue={responses[r.id]||((vendor as any)[r.field_key]||"")} required={r.is_required}/>}
-    </div>)}
-    <button className="primary-action" type="submit">Submit onboarding</button>
-   </form>
-  </section>
- </main>
+ return <div className="vendor-shell">
+  <aside className="vendor-side">
+   <BuildPathLogo/>
+   <nav>
+    <a className="nav-active" href="#"><span className="nav-icon">⌂</span>Onboarding</a>
+    <a href="#"><span className="nav-icon">▦</span>My Company</a>
+    <a href="#"><span className="nav-icon">▤</span>Documents</a>
+    <a href="#"><span className="nav-icon">?</span>Support</a>
+   </nav>
+   <div className="sidebar-spacer"/>
+   <div className="sidebar-concrete"><strong>BUILD<br/>SMARTER<br/>TOGETHER</strong><span/></div>
+  </aside>
+  <main className="vendor-portal">
+   <header className="vendor-hero"><div><p className="eyebrow">VENDOR PORTAL</p><h1>Vendor / Subcontractor Onboarding</h1><p>Complete the information below to become an approved BuildPath vendor.</p></div></header>
+   <section className="vendor-portal-card">
+    <div className="portal-heading"><div><h2>{vendor.legal_name||"Complete your company profile"}</h2><p>Provide the information and documents requested by the project team. You can return to this link to update your submission.</p></div><div className="portal-progress"><strong>{Math.round((Math.min(reqs.length,Object.keys(responses).length)/Math.max(1,reqs.length))*100)}%</strong><span>Onboarding progress</span></div></div>
+    {msg&&<div className="form-message">{msg}</div>}
+    <form className="portal-form" onSubmit={save}>
+     {reqs.map(r=><div className="portal-field" key={r.id}><label>{r.label}{r.is_required&&<span>*</span>}</label>{r.help_text&&<small>{r.help_text}</small>}
+      {r.requirement_type==="document"?<input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={e=>upload(r,e)}/>:
+       r.requirement_type==="payment_enrollment"?<div className="secure-payment"><strong>Secure payment enrollment</strong><p>BuildPath does not place raw routing or bank account numbers in the ordinary project database. Payment enrollment will be completed through a secure/tokenized payment setup.</p><span>Status: {vendor.payment_enrollment_status.replaceAll("_"," ")}</span></div>:
+       r.requirement_type==="select"?<select name={r.id} defaultValue={responses[r.id]||((vendor as any)[r.field_key]||"")} required={r.is_required}><option value="">Select…</option><option>Sole proprietor</option><option>C Corporation</option><option>S Corporation</option><option>Partnership</option><option>LLC</option><option>Other</option></select>:
+       <input name={r.id} type={r.requirement_type==="email"?"email":r.requirement_type==="number"?"number":r.requirement_type==="date"?"date":"text"} defaultValue={responses[r.id]||((vendor as any)[r.field_key]||"")} required={r.is_required}/>}
+     </div>)}
+     <button className="primary-action" type="submit">Submit for Review →</button>
+    </form>
+   </section>
+  </main>
+ </div>
 }
