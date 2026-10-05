@@ -82,7 +82,7 @@ export default function UploadExtractPage(){
 
  if(!project)return <main className="setup-shell"><section className="setup-card">Loading…</section></main>;
  return <div className="shell"><AppSidebar projectId={project.id} active="Upload & Extract"/><main className="main standalone-page">
-  <header className="topbar"><div><p className="eyebrow">UPLOAD & EXTRACT</p><h1>{project.name}</h1><p>Turn project files into connected evidence and proposed facts.</p></div><a className="secondary-action" href={"/?project="+project.id}>← Back to project</a></header>
+  <header className="topbar"><div><p className="eyebrow">PROJECT INTELLIGENCE</p><h1>Upload & Extract</h1><p>Turn documents from {project.name} into connected project intelligence.</p></div><a className="secondary-action" href={"/?project="+project.id}>← Back to project</a></header>
   {msg&&<div className="form-message">{msg}</div>}
   <section className="panel page-panel">
    <p className="eyebrow">PROJECT FILES</p><h3>Drop in the project record</h3>
