@@ -286,3 +286,24 @@ a{color:inherit}
 .standalone-page>.topbar .eyebrow{display:none}
 .standalone-page>.topbar p{font-size:14px}
 @media(max-width:820px){.project-ribbon{grid-template-columns:1fr}.project-ribbon-meta span+span:before{display:none}}
+
+.vendor-shell{min-height:100vh;display:grid;grid-template-columns:220px minmax(0,1fr);background:var(--concrete)}
+.vendor-side{position:sticky;top:0;height:100vh;background:linear-gradient(180deg,#181a1b,#111314 72%);padding:22px 14px 18px;color:#fff;display:flex;flex-direction:column}
+.vendor-side .bp-logo{margin-bottom:26px}
+.vendor-side nav{display:flex;flex-direction:column;gap:3px}
+.vendor-side nav a{display:flex;align-items:center;gap:10px;color:#d4d6d6;text-decoration:none;padding:10px 11px;border-radius:5px;font-size:13px}
+.vendor-side nav a:hover{background:#2a2d2e;color:#fff}
+.vendor-side nav .nav-active{background:linear-gradient(90deg,#a64a0b,#69300c);color:#fff;border-left:3px solid var(--orange);padding-left:8px}
+.vendor-portal{padding:14px 18px 42px;background:transparent}
+.vendor-hero{min-height:130px;border-radius:7px;margin-bottom:10px;padding:26px 28px;display:flex;align-items:flex-end;color:#fff;background-image:linear-gradient(90deg,rgba(10,11,12,.88),rgba(10,11,12,.48)),url("https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=1800&q=80");background-size:cover;background-position:center 48%;position:relative}
+.vendor-hero:after{content:"PEOPLE\A PROJECTS\A PROGRESS";white-space:pre;position:absolute;right:28px;top:24px;letter-spacing:.3em;line-height:1.8;font-size:9px}
+.vendor-hero h1{margin:0 0 5px;font-size:34px;letter-spacing:-.035em}
+.vendor-hero p{margin:0;color:#eee}
+.vendor-portal-card{width:100%;margin:0;border:1px solid var(--line);background:#fff;border-radius:7px;padding:18px;box-shadow:var(--shadow)}
+.portal-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;border-bottom:1px solid #e2e1de;padding-bottom:14px}
+.portal-heading h2{margin:0 0 5px;font-size:20px}
+.portal-heading p{margin:0;color:var(--muted);font-size:11px}
+.portal-progress{display:flex;flex-direction:column;align-items:flex-end;min-width:100px}
+.portal-progress strong{font-size:28px;color:var(--orange)}
+.portal-progress span{font-size:9px;color:var(--muted)}
+@media(max-width:820px){.vendor-shell{grid-template-columns:1fr}.vendor-side{position:relative;height:auto}.vendor-side nav{flex-direction:row;overflow-x:auto}.vendor-side .sidebar-spacer,.vendor-side .sidebar-concrete{display:none}.vendor-hero:after{display:none}}
