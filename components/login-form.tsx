@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { BuildPathLogo } from "@/components/buildpath-logo";
 
 export function LoginForm() {
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -37,20 +38,30 @@ export function LoginForm() {
   }
 
   return (
-    <main className="setup-shell">
-      <section className="setup-card auth-card">
-        <span className="setup-kicker">BUILD THE PROJECT MEMORY</span>
-        <h1>{mode === "login" ? "Welcome back to BuildPath." : "Create your BuildPath account."}</h1>
-        <p>BuildPath keeps construction projects, evidence and relationships separate from LifePath.</p>
-        <form className="auth-form" onSubmit={submit}>
-          <label>Email<input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" /></label>
-          <label>Password<input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} /></label>
-          {message && <div className="form-message">{message}</div>}
-          <button className="primary-action" type="submit" disabled={busy}>{busy ? "Working…" : mode === "login" ? "Sign in" : "Create account"}</button>
-        </form>
-        <button className="auth-switch" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMessage(""); }}>
-          {mode === "login" ? "New to BuildPath? Create an account" : "Already have an account? Sign in"}
-        </button>
+    <main className="auth-layout">
+      <section className="auth-side">
+        <BuildPathLogo/>
+        <div className="auth-card">
+          <span className="setup-kicker">CONSTRUCTION PROJECT INTELLIGENCE</span>
+          <h1>{mode === "login" ? "Welcome back" : "Create your account"}</h1>
+          <p>Access your projects, documents, vendors, schedule, cost, and project intelligence.</p>
+          <form className="auth-form" onSubmit={submit}>
+            <label>Email<input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" /></label>
+            <label>Password<input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+            {message && <div className="form-message">{message}</div>}
+            <button className="primary-action" type="submit" disabled={busy}>{busy ? "Working…" : mode === "login" ? "Sign in →" : "Create account →"}</button>
+          </form>
+          <button className="auth-switch" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMessage(""); }}>
+            {mode === "login" ? "Don’t have an account? Create one" : "Already have an account? Sign in"}
+          </button>
+        </div>
+      </section>
+      <section className="auth-hero">
+        <div>
+          <h2>Connect every part of your build.</h2>
+          <p>Projects, documents, vendors, schedule, and cost — all in one place for a more connected, more productive construction team.</p>
+          <div className="auth-hero-accent"/>
+        </div>
       </section>
     </main>
   );
