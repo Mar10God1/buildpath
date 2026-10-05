@@ -117,12 +117,21 @@ export function ProjectSetup() {
       return;
     }
 
-    const companies = [
-      form.owner ? { organization_id: organizationId, name: form.owner, company_type: "owner" } : null,
-      form.generalContractor ? { organization_id: organizationId, name: form.generalContractor, company_type: "general_contractor" } : null,
-    ].filter(Boolean);
+    const companies: Array<{
+      organization_id: string;
+      name: string;
+      company_type: string;
+    }> = [];
 
-    if (companies.length) {
+    if (form.owner) {
+      companies.push({ organization_id: organizationId, name: form.owner, company_type: "owner" });
+    }
+
+    if (form.generalContractor) {
+      companies.push({ organization_id: organizationId, name: form.generalContractor, company_type: "general_contractor" });
+    }
+
+    if (companies.length > 0) {
       const { error: companyError } = await supabase.from("companies").insert(companies);
       if (companyError) {
         setBusy(false);
