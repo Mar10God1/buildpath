@@ -237,3 +237,23 @@ nav button:hover, .nav-active { background:#191e1d !important; color:var(--text)
  .vendor-table>article,.vendor-edit,.invite-link{grid-template-columns:1fr}
  .candidate-list article,.requirements-list article{flex-direction:column}
 }
+
+
+.sidebar nav .side-link{
+  display:block;
+  width:100%;
+  border:0;
+  background:transparent;
+  color:#aeb5b2;
+  text-align:left;
+  border-radius:9px;
+  padding:10px 12px;
+  cursor:pointer;
+  text-decoration:none;
+  font:inherit;
+  line-height:normal;
+}
+.sidebar nav .side-link:hover{
+  background:#191e1d;
+  color:var(--text);
+}
