@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { AppSidebar } from "@/components/app-sidebar";
 
 type Project={id:string;organization_id:string;name:string};
 type Vendor={id:string;legal_name:string|null;dba_name:string|null;vendor_type:string;ein:string|null;tax_classification:string|null;contact_name:string|null;contact_email:string|null;contact_phone:string|null;payment_enrollment_status:string;compliance_status:string;notes:string|null};
@@ -60,7 +61,7 @@ export default function VendorsPage(){
  }
 
  if(!project)return <main className="setup-shell"><section className="setup-card">Loading vendors…</section></main>;
- return <main className="main standalone-page">
+ return <div className="shell"><AppSidebar projectId={project.id} active="Vendors & Subs"/><main className="main standalone-page">
   <header className="topbar"><div><p className="eyebrow">VENDORS & SUBCONTRACTORS</p><h1>{project.name}</h1><p>Onboarding, compliance, documents and payment setup</p></div><a className="secondary-action" href={"/?project="+project.id}>← Back to project</a></header>
   {msg&&<div className="form-message">{msg}</div>}{inviteLink&&<div className="invite-link"><strong>Vendor onboarding link</strong><input readOnly value={inviteLink}/><button className="primary-action" onClick={()=>navigator.clipboard.writeText(inviteLink)}>Copy link</button></div>}
   <section className="panel page-panel"><div className="panel-title"><div><p className="eyebrow">VENDOR DIRECTORY</p><h3>Project vendors & subcontractors</h3></div><button className="primary-action" onClick={()=>setMode(mode==="vendor"?null:"vendor")}>＋ Add vendor</button></div>
