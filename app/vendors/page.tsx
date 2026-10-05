@@ -73,5 +73,5 @@ export default function VendorsPage(){
    <div className="requirements-list">{reqs.map(r=><article key={r.id}><div><strong>{r.label}</strong><p>{r.help_text||r.field_key}</p></div><div><span className="type">{r.requirement_type.replaceAll("_"," ")}</span>{r.is_required&&<span className="required-tag">Required</span>}{r.expires&&<span className="required-tag">Expires</span>}</div></article>)}</div>
   </section>
   <section className="panel page-panel"><p className="eyebrow">INVITATIONS</p><h3>Onboarding activity</h3>{invites.length?<div className="event-list">{invites.map(i=><article key={i.id}><time>{new Date(i.created_at).toLocaleDateString()}</time><div><h4>{i.invited_email}</h4><p>Status: {i.status.replaceAll("_"," ")}</p></div><div className="impact-stack"><span>{i.due_date||"No due date"}</span></div></article>)}</div>:<div className="empty-state"><p>No vendor invitations yet.</p></div>}</section>
- </main>
+ </main></div>
 }
