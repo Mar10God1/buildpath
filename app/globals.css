@@ -542,3 +542,7 @@ a{color:inherit}
 .field-join-card h1{font-size:29px;letter-spacing:-.035em;margin:3px 0 8px}
 .field-join-card>p:not(.eyebrow){color:var(--muted);line-height:1.55;font-size:12px}
 @media(max-width:620px){.field-invite-form,.field-invite-list>div{grid-template-columns:1fr}}
+
+.adaptive-tags>button{display:flex;flex-direction:column;gap:2px;border:1px solid #e1e0dc;background:#faf9f6;border-radius:5px;padding:8px 10px;min-width:140px;text-align:left;cursor:pointer;color:var(--text)}
+.adaptive-tags>button:hover{border-color:#efb58d;background:#fff8f2}
+.adaptive-tags>button b{font-size:10px}.adaptive-tags>button small{font-size:8px;color:var(--muted)}
