@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { generateText } from "ai";
 
 export const runtime="nodejs";
 export const maxDuration=30;
@@ -109,6 +110,118 @@ function buildCandidates(input:{
   return out.slice(0,20);
 }
 
+
+type AIIntel={
+  summary?:string|null;vendor_name?:string|null;amount?:number|null;invoice_number?:string|null;date?:string|null;
+  event_title?:string|null;event_type?:string|null;schedule_impact_days?:number|null;cost_impact?:number|null;
+  risk_flags?:string[];companies?:string[];people?:Array<{name?:string|null;email?:string|null}>;commitments?:string[];
+};
+
+function parseJsonObject(text:string):AIIntel|null{
+  const cleaned=text.trim().replace(/^\`\`\`(?:json)?/i,"").replace(/\`\`\`$/,"").trim();
+  const start=cleaned.indexOf("{"),end=cleaned.lastIndexOf("}");
+  if(start<0||end<=start)return null;
+  try{return JSON.parse(cleaned.slice(start,end+1)) as AIIntel}catch{return null}
+}
+
+async function enrichWithAI(args:{
+  supabase:ReturnType<typeof createClient>;storagePath:string|null;mediaType:string|null;
+  submissionType:string;title:string|null;notes:string|null;transcript:string|null;
+  amount:number|null;vendorName:string|null;occurredAt:string;userId:string;
+}):Promise<{intel:AIIntel|null;used:boolean;model:string|null}>{
+  const context=[
+    "Capture type: "+args.submissionType,
+    "Captured at: "+args.occurredAt,
+    args.title?"Title: "+args.title:"",
+    args.vendorName?"Vendor supplied by user: "+args.vendorName:"",
+    args.amount!=null?"Amount supplied by user: "+args.amount:"",
+    args.notes?"Notes: "+args.notes:"",
+    args.transcript?"Transcript: "+args.transcript:""
+  ].filter(Boolean).join("\n");
+
+  let imageBytes:Uint8Array|null=null;
+  if(args.storagePath&&args.mediaType?.startsWith("image/")){
+    const download=await args.supabase.storage.from("field-capture").download(args.storagePath);
+    if(!download.error&&download.data.size<=10*1024*1024)imageBytes=new Uint8Array(await download.data.arrayBuffer());
+  }
+
+  if(!imageBytes&&context.length<35)return{intel:null,used:false,model:null};
+
+  const prompt=`You extract construction project intelligence from field evidence.
+Return ONLY one valid JSON object, with no markdown and no commentary.
+Never invent details that are not visible or stated. Use null or [] when unknown.
+
+Schema:
+{
+ "summary": string|null,
+ "vendor_name": string|null,
+ "amount": number|null,
+ "invoice_number": string|null,
+ "date": string|null,
+ "event_title": string|null,
+ "event_type": "progress"|"cost"|"delivery"|"incident"|"safety"|"field"|null,
+ "schedule_impact_days": number|null,
+ "cost_impact": number|null,
+ "risk_flags": string[],
+ "companies": string[],
+ "people": [{"name": string|null, "email": string|null}],
+ "commitments": string[]
+}
+
+For receipts/invoices, read vendor, total amount, invoice/receipt number and date if legible.
+For progress/delivery photos, describe only visible work/materials and flag obvious issues.
+For safety/incident evidence, identify visible or stated hazards/incidents without guessing causes.
+Convert clearly stated hour delays to workdays using 8 hours = 1 day.
+Do not infer identities from faces.
+Field context:
+${context}`;
+
+  try{
+    const parts:any[]=[{type:"text",text:prompt}];
+    if(imageBytes)parts.push({type:"image",image:imageBytes,mimeType:args.mediaType||undefined});
+    const result=await generateText({
+      model:"openai/gpt-5-nano",
+      messages:[{role:"user",content:parts}],
+      providerOptions:{gateway:{user:args.userId,tags:["feature:field-intelligence","env:production"]}}
+    });
+    return{intel:parseJsonObject(result.text),used:true,model:"openai/gpt-5-nano"};
+  }catch{
+    return{intel:null,used:false,model:null};
+  }
+}
+
+function mergeAI(found:Candidate[],intel:AIIntel|null,source:Record<string,unknown>,fallbackDate:string){
+  if(!intel)return found;
+  const event=found.find(x=>x.candidate_type==="event");
+  if(event){
+    event.proposed_value={
+      ...event.proposed_value,
+      ...(intel.event_title?{title:intel.event_title}:{}),
+      ...(intel.summary?{description:intel.summary}:{}),
+      ...(intel.event_type?{event_type:intel.event_type}:{}),
+      ...(intel.date?{date:intel.date}:{}),
+      ...(typeof intel.schedule_impact_days==="number"?{schedule_impact_days:intel.schedule_impact_days}:{}),
+      ...(typeof intel.cost_impact==="number"?{cost_impact:intel.cost_impact}:{}),
+      ...(intel.vendor_name?{vendor_name:intel.vendor_name}:{}),
+    };
+    event.confidence=Math.max(event.confidence,0.9);
+  }
+  if(intel.summary)found.push({candidate_type:"document_fact",candidate_key:"ai_field_summary",proposed_value:{...source,title:"AI field summary",summary:intel.summary,risk_flags:intel.risk_flags||[]},confidence:0.9});
+  const amount=typeof intel.amount==="number"?intel.amount:(typeof intel.cost_impact==="number"?intel.cost_impact:null);
+  if(amount!=null&&!found.some(x=>x.candidate_type==="cost"&&Number(x.proposed_value.amount)===amount)){
+    found.push({candidate_type:"cost",candidate_key:String(amount),proposed_value:{...source,amount,vendor_name:intel.vendor_name||null,date:intel.date||fallbackDate,invoice_number:intel.invoice_number||null},confidence:0.9});
+  }
+  const companies=unique([...(intel.companies||[]),...(intel.vendor_name?[intel.vendor_name]:[])].map(x=>x.trim()).filter(Boolean));
+  companies.forEach(name=>{if(!found.some(x=>x.candidate_type==="company"&&x.candidate_key===name.toLowerCase()))found.push({candidate_type:"company",candidate_key:name.toLowerCase(),proposed_value:{...source,name,relationship:"field_vendor"},confidence:0.86})});
+  (intel.people||[]).forEach((p,i)=>{
+    const key=(p.email||p.name||("person-"+i)).toLowerCase();
+    if(!found.some(x=>x.candidate_type==="person"&&x.candidate_key===key))found.push({candidate_type:"person",candidate_key:key,proposed_value:{...source,name:p.name||null,email:p.email||null},confidence:p.email?0.86:0.7});
+  });
+  (intel.commitments||[]).slice(0,5).forEach((title,i)=>found.push({candidate_type:"commitment",candidate_key:("ai:"+title+":"+i).toLowerCase(),proposed_value:{...source,title,date:intel.date||fallbackDate,description:intel.summary||null},confidence:0.8}));
+  (intel.risk_flags||[]).slice(0,6).forEach((flag,i)=>found.push({candidate_type:"document_fact",candidate_key:"risk:"+i,proposed_value:{...source,title:"Field risk flag",summary:flag,risk_type:intel.event_type||"field"},confidence:0.88}));
+  return found.slice(0,30);
+}
+
 export async function POST(req:NextRequest){
   try{
     const token=req.headers.get("authorization")?.replace(/^Bearer\s+/i,"");
@@ -143,11 +256,18 @@ export async function POST(req:NextRequest){
     }).select("id").single();
     if(job.error)throw job.error;
 
-    const found=buildCandidates({
+    let found=buildCandidates({
       submissionType:s.submission_type,title:s.title,notes:s.notes,transcript:s.transcript,
       amount:s.amount!=null?Number(s.amount):null,vendorName:s.vendor_name,
       occurredAt:s.occurred_at,evidenceId:s.evidence_id,submissionId:s.id
     });
+    const source={source:"field_capture",submission_id:s.id,evidence_id:s.evidence_id};
+    const ai=await enrichWithAI({
+      supabase,storagePath:s.storage_path,mediaType:s.media_type,submissionType:s.submission_type,
+      title:s.title,notes:s.notes,transcript:s.transcript,amount:s.amount!=null?Number(s.amount):null,
+      vendorName:s.vendor_name,occurredAt:s.occurred_at,userId:auth.data.user.id
+    });
+    found=mergeAI(found,ai.intel,source,s.occurred_at);
 
     if(found.length){
       const ins=await supabase.from("extraction_candidates").insert(found.map(c=>({...c,job_id:job.data.id,project_id:s.project_id})));
@@ -158,12 +278,12 @@ export async function POST(req:NextRequest){
     await supabase.from("ingestion_jobs").update({
       status,
       extracted_text:[s.notes,s.transcript].filter(Boolean).join("\n").slice(0,100000),
-      extracted_metadata:{source:"field_capture",submission_id:s.id,candidate_count:found.length},
+      extracted_metadata:{source:"field_capture",submission_id:s.id,candidate_count:found.length,ai_enriched:ai.used,ai_model:ai.model},
       completed_at:new Date().toISOString()
     }).eq("id",job.data.id);
     await supabase.from("field_submissions").update({processing_status:status}).eq("id",s.id);
 
-    return NextResponse.json({status,candidateCount:found.length,jobId:job.data.id});
+    return NextResponse.json({status,candidateCount:found.length,jobId:job.data.id,aiEnriched:ai.used});
   }catch(error:any){
     return NextResponse.json({error:error?.message||"Field processing failed"},{status:500});
   }
