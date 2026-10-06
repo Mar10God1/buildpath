@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { AppSidebar } from "@/components/app-sidebar";
+import { getProjectVisual } from "@/lib/project-visuals";
 
-type Project={id:string;name:string};
+type Project={id:string;name:string;project_type:string|null;hero_image_url:string|null};
 type Candidate={id:string;candidate_type:string;candidate_key:string|null;proposed_value:Record<string,unknown>;confidence:number|null;status:string};
 type Evidence={id:string;title:string|null;evidence_type:string;created_at:string};
 
 export default function UploadExtractPage(){
- const[project,setProject]=useState<Project|null>(null);
+ const[project,setProject]=useState<Project|null>(null);const[heroImage,setHeroImage]=useState("");
  const[candidates,setCandidates]=useState<Candidate[]>([]);
  const[evidence,setEvidence]=useState<Evidence[]>([]);
  const[uploading,setUploading]=useState(false);
@@ -20,11 +21,11 @@ export default function UploadExtractPage(){
   const auth=await s.auth.getUser();
   if(!auth.data.user){window.location.href="/login?next="+encodeURIComponent(window.location.pathname+window.location.search);return}
   const wanted=new URLSearchParams(window.location.search).get("project");
-  const pr=await s.from("projects").select("id,name").order("created_at",{ascending:false});
+  const pr=await s.from("projects").select("id,name,project_type,hero_image_url").order("created_at",{ascending:false});
   const list=(pr.data||[]) as Project[];
   const p=list.find(x=>x.id===wanted)||list[0];
   if(!p){window.location.href="/setup";return}
-  setProject(p);
+  setProject(p);if(p.hero_image_url){const signed=await s.storage.from("project-assets").createSignedUrl(p.hero_image_url,3600);setHeroImage(signed.data?.signedUrl||getProjectVisual(p.project_type).image)}else setHeroImage(getProjectVisual(p.project_type).image);
   const [cr,er]=await Promise.all([
    s.from("extraction_candidates").select("id,candidate_type,candidate_key,proposed_value,confidence,status").eq("project_id",p.id).eq("status","pending").order("created_at",{ascending:false}).limit(50),
    s.from("evidence").select("id,title,evidence_type,created_at").eq("project_id",p.id).order("created_at",{ascending:false}).limit(30)
@@ -81,9 +82,10 @@ export default function UploadExtractPage(){
  }
 
  if(!project)return <main className="setup-shell"><section className="setup-card">Loading…</section></main>;
+ const visual=getProjectVisual(project.project_type);
  return <div className="shell"><AppSidebar projectId={project.id} active="Upload & Extract"/><main className="main standalone-page">
   <div className="global-topbar"><div className="global-search">⌕ <span>Search projects, documents, subs, or ask anything...</span></div><div className="global-user"><span className="notify-dot">●</span><span className="user-avatar">MG</span><span><strong>BuildPath</strong><small>Project workspace</small></span></div></div>
-  <div className="upload-titlebar"><div><small>{project.name} &nbsp;›&nbsp; Upload & Extract</small><h1>Upload & Extract</h1><p>Turn project documents into actionable insights with AI.</p></div><a className="secondary-action" href={"/?project="+project.id}>View Project →</a></div>
+  <header className="topbar compact-project-hero" style={{backgroundImage:"linear-gradient(90deg,rgba(10,11,12,.88),rgba(10,11,12,.54) 55%,rgba(10,11,12,.35)),url("+JSON.stringify(heroImage||visual.image)+")"}}><div><p className="eyebrow">{visual.eyebrow}</p><h1>Upload & Extract</h1><p>Turn {project.name} documents into connected project intelligence.</p></div><a className="secondary-action" href={"/?project="+project.id}>View Project →</a></header>
   <div className="ingestion-steps"><div className="active"><b>1</b><span><strong>Upload</strong><small>Add project documents</small></span></div><div className={uploading?"active":""}><b>2</b><span><strong>Extract</strong><small>AI analyzes content</small></span></div><div className={candidates.length?"active":""}><b>3</b><span><strong>Review</strong><small>Verify and organize</small></span></div><div><b>4</b><span><strong>Complete</strong><small>Add to project records</small></span></div></div>
   {msg&&<div className="form-message">{msg}</div>}
 
