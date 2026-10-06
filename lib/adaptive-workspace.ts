@@ -26,7 +26,7 @@ const meta:Record<ModuleKey,{label:string;icon:string}>={
 };
 
 function has(reqs:ProjectRequirement[],key:string){return reqs.some(r=>r.enabled&&r.requirement_key===key)}
-function norm(v?:string|null){return (v||"").toLowerCase().replace(/[s/]+/g,"_")}
+function norm(v?:string|null){return (v||"").toLowerCase().replace(/[\s/]+/g,"_")}
 function push(map:Map<ModuleKey,ModuleDecision>,key:ModuleKey,visibility:"visible"|"available"|"hidden",priority:number,reason:string){
  const current=map.get(key);
  const rank={hidden:0,available:1,visible:2};
