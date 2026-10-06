@@ -30,10 +30,11 @@ function fmtDate(v:string|null|undefined){if(!v)return"Not set";const d=new Date
 function days(a:string|null,b:string|null){if(!a||!b)return null;return Math.max(0,Math.round((new Date(b).getTime()-new Date(a).getTime())/86400000))}
 
 export function Workspace(){
- const[projects,setProjects]=useState<Project[]>([]);const[project,setProject]=useState<Project|null>(null);const[heroImage,setHeroImage]=useState("");const[companies,setCompanies]=useState<Company[]>([]);const[people,setPeople]=useState<Person[]>([]);const[evidence,setEvidence]=useState<Evidence[]>([]);const[events,setEvents]=useState<EventRow[]>([]);const[vendors,setVendors]=useState<VendorSummary[]>([]);const[requirements,setRequirements]=useState<ProjectRequirement[]>([]);const[modulePrefs,setModulePrefs]=useState<ModulePreference[]>([]);const[section,setSection]=useState("Overview");const[loading,setLoading]=useState(true);const[error,setError]=useState("");const[switcher,setSwitcher]=useState(false);
+ const[projects,setProjects]=useState<Project[]>([]);const[project,setProject]=useState<Project|null>(null);const[heroImage,setHeroImage]=useState("");const[companies,setCompanies]=useState<Company[]>([]);const[people,setPeople]=useState<Person[]>([]);const[evidence,setEvidence]=useState<Evidence[]>([]);const[events,setEvents]=useState<EventRow[]>([]);const[vendors,setVendors]=useState<VendorSummary[]>([]);const[requirements,setRequirements]=useState<ProjectRequirement[]>([]);const[modulePrefs,setModulePrefs]=useState<ModulePreference[]>([]);const[userRole,setUserRole]=useState<string|null>(null);const[section,setSection]=useState("Overview");const[loading,setLoading]=useState(true);const[error,setError]=useState("");const[switcher,setSwitcher]=useState(false);
 
  async function load(next:Project){
   const supabase=createClient();setProject(next);setLoading(true);setError("");
+  const auth=await supabase.auth.getUser();const uid=auth.data.user?.id;
   if(next.hero_image_url){const signed=await supabase.storage.from("project-assets").createSignedUrl(next.hero_image_url,3600);setHeroImage(signed.data?.signedUrl||getProjectVisual(next.project_type).image)}else{setHeroImage(getProjectVisual(next.project_type).image)}
   const results=await Promise.all([
    supabase.from("companies").select("id,name,company_type,organization_id").eq("organization_id",next.organization_id).order("name"),
@@ -42,10 +43,11 @@ export function Workspace(){
    supabase.from("project_events").select("id,event_type,title,description,start_at,end_at,date_precision,status,cost_impact,schedule_impact_days").eq("project_id",next.id).order("start_at",{ascending:true}),
    supabase.from("vendor_profiles").select("id,legal_name,compliance_status,payment_enrollment_status,contact_name,contact_email").eq("organization_id",next.organization_id).order("created_at",{ascending:false}),
    supabase.from("project_requirements").select("requirement_key,label,enabled,source").eq("project_id",next.id),
-   supabase.from("project_module_preferences").select("module_key,visibility").eq("project_id",next.id)
+   supabase.from("project_module_preferences").select("module_key,visibility").eq("project_id",next.id),
+   uid?supabase.from("project_user_preferences").select("user_role").eq("project_id",next.id).eq("user_id",uid).maybeSingle():Promise.resolve({data:null,error:null})
   ]);
   const first=results.find(r=>r.error);if(first&&first.error)setError(first.error.message);
-  setCompanies((results[0].data||[]) as Company[]);setPeople((results[1].data||[]) as Person[]);setEvidence((results[2].data||[]) as Evidence[]);setEvents((results[3].data||[]) as EventRow[]);setVendors((results[4].data||[]) as VendorSummary[]);setRequirements((results[5].data||[]) as ProjectRequirement[]);setModulePrefs((results[6].data||[]) as ModulePreference[]);setLoading(false);
+  setCompanies((results[0].data||[]) as Company[]);setPeople((results[1].data||[]) as Person[]);setEvidence((results[2].data||[]) as Evidence[]);setEvents((results[3].data||[]) as EventRow[]);setVendors((results[4].data||[]) as VendorSummary[]);setRequirements((results[5].data||[]) as ProjectRequirement[]);setModulePrefs((results[6].data||[]) as ModulePreference[]);setUserRole((results[7].data as {user_role?:string|null}|null)?.user_role||next.user_role||null);setLoading(false);
   const u=new URL(window.location.href);u.searchParams.set("project",next.id);window.history.replaceState({},"",u);
  }
 
@@ -56,7 +58,8 @@ export function Workspace(){
  if(!project)return null;
  const location=[project.city,project.state].filter(Boolean).join(", ");
  const visual=getProjectVisual(project.project_type);
- const adaptiveModules=buildWorkspace(project,requirements,modulePrefs,companies.length,evidence.length);
+ const adaptiveProject={...project,user_role:userRole||project.user_role};
+ const adaptiveModules=buildWorkspace(adaptiveProject,requirements,modulePrefs,companies.length,evidence.length);
  return <div className="shell">
   <aside className="sidebar">
    <BuildPathLogo/>
