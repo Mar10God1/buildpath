@@ -69,6 +69,8 @@ export function Workspace(){
    <nav>
  {visibleModules.map(m=>m.key==="vendors"
   ?<a key={m.key} className="side-link" href={"/vendors?project="+project.id}><span className="nav-icon">{m.icon}</span>{m.label}</a>
+  :m.key==="field_capture"
+  ?<a key={m.key} className="side-link field-nav" href={"/field?project="+project.id}><span className="nav-icon">{m.icon}</span>{m.label}</a>
   :<button key={m.key} className={moduleSection(m.key)===section?"nav-active":""} onClick={()=>setSection(moduleSection(m.key))}><span className="nav-icon">{m.icon}</span>{m.label}{m.key==="ask"&&<small className="beta-badge">BETA</small>}</button>)}
  {availableModules.length>0&&<><div className="nav-divider"/><button className="muted-nav" onClick={()=>setSection("Project Data")}><span className="nav-icon">＋</span>Add to Project <small>{availableModules.length}</small></button></>}
 </nav>
@@ -86,12 +88,12 @@ export function Workspace(){
    {section==="Costs"&&<Costs project={project} events={events}/>}
    {section==="Schedule"&&<Schedule project={project} events={events}/>}
    {section==="Project Data"&&<ProjectData project={project} companies={companies} requirements={requirements} modulePrefs={modulePrefs} workspace={workspace} refresh={()=>load(project)}/>
-   {section.startsWith("Adaptive:")&&<AdaptiveModule moduleKey={section.replace("Adaptive:","") as ModuleKey} project={project} events={events} evidence={evidence}/>}}
+   {section.startsWith("Adaptive:")&&<AdaptiveModule moduleKey={section.replace("Adaptive:","") as ModuleKey} project={project} events={events} evidence={evidence}/>} 
   </main>
  </div>
 }
 
-function Overview({project,companies,people,evidence,events,vendors,go}:{project:Project;companies:Company[];people:Person[];evidence:Evidence[];events:EventRow[];vendors:VendorSummary[];go:(s:string)=>void}){
+function Overview({project,companies,people,evidence,events,vendors,modules,go}:{project:Project;companies:Company[];people:Person[];evidence:Evidence[];events:EventRow[];vendors:VendorSummary[];modules:{key:ModuleKey;visibility:string;reason:string;label:string}[];go:(s:string)=>void}){
  const span=days(project.baseline_start,project.target_finish);
  const totalImpact=events.reduce((s,e)=>s+(Number(e.cost_impact)||0),0);
  const scheduleImpact=events.reduce((s,e)=>s+(Number(e.schedule_impact_days)||0),0);
@@ -101,6 +103,8 @@ function Overview({project,companies,people,evidence,events,vendors,go}:{project
  const recentEvidence=evidence.slice(0,5);
  const approvals=events.filter(e=>["pending","submitted","under_review","open"].includes((e.status||"").toLowerCase())||["change","decision"].includes(e.event_type)).slice(0,5);
  const recentEvents=[...events].sort((a,b)=>new Date(b.start_at||0).getTime()-new Date(a.start_at||0).getTime()).slice(0,5);
+ const show=(key:ModuleKey)=>modules.some(m=>m.key===key&&m.visibility==="visible");
+ const recommended=modules.filter(m=>m.visibility==="visible"&&!["home","ask","documents","timeline","project_data"].includes(m.key)).slice(0,6);
  const scheduleRows=[
   ["Site Work",100],
   ["Foundations",Math.min(100,Math.max(25,100-scheduleImpact*2))],
@@ -125,22 +129,28 @@ function Overview({project,companies,people,evidence,events,vendors,go}:{project
    <div className="question-presets"><button onClick={()=>go("Ask BuildPath")}>What’s driving schedule risk?</button><button onClick={()=>go("Ask BuildPath")}>Show pending approvals</button><button onClick={()=>go("Ask BuildPath")}>Summarize project activity</button><button onClick={()=>go("Ask BuildPath")}>Which subs need attention?</button></div>
   </section>
 
-  <section className="panel dashboard-card schedule-card">
+  {show("schedule")&&<section className="panel dashboard-card schedule-card">
    <div className="panel-title"><h3>▣ &nbsp; Schedule</h3><button className="text-button" onClick={()=>go("Schedule")}>View Schedule →</button></div>
    <div className="schedule-mini">{scheduleRows.map(([label,pct])=><div key={label}><span>{label}</span><i><b style={{width:pct+"%"}}/></i><strong>{pct}%</strong></div>)}</div>
-  </section>
+  </section>}
 
-  <section className="panel dashboard-card cost-card">
+  {show("cost")&&<section className="panel dashboard-card cost-card">
    <div className="panel-title"><h3>◉ &nbsp; Cost</h3><button className="text-button" onClick={()=>go("Costs")}>View Cost →</button></div>
    <div className="cost-top"><div><span>Total Budget</span><strong>{money(project.original_budget)}</strong></div><div><span>Forecast</span><strong>{money(forecast)}</strong></div><div><span>Linked Impact</span><strong className={totalImpact>0?"warn-text":"ok-text"}>{money(totalImpact)}</strong></div></div>
    <div className="cost-bar"><b style={{width:project.original_budget?Math.min(100,(forecast/project.original_budget)*100)+"%":"0%"}}/></div>
    <div className="cost-bottom"><div><span>Schedule exposure</span><strong>{scheduleImpact} days</strong></div><div><span>Evidence-backed changes</span><strong>{events.filter(e=>e.cost_impact).length}</strong></div><div><span>Variance</span><strong>{money(totalImpact)}</strong></div></div>
-  </section>
+  </section>}
 
-  <section className="panel dashboard-card compliance-card">
+  {(show("vendors")||show("compliance"))&&<section className="panel dashboard-card compliance-card">
    <div className="panel-title"><h3>♟ &nbsp; Subcontractor Compliance</h3><a className="text-button" href={"/vendors?project="+project.id}>View All →</a></div>
    <div className="compliance-layout"><div className="compliance-ring" style={{background:"conic-gradient(var(--green) 0 "+compliance+"%, #f0ad28 "+compliance+"% "+Math.min(100,compliance+12)+"%, #e6e7e4 "+Math.min(100,compliance+12)+"% 100%)"}}><strong>{compliance}%</strong><span>Compliant</span></div><div className="compliance-legend"><p><i className="legend-green"/>Complete <b>{completeVendors}</b></p><p><i className="legend-yellow"/>Pending <b>{vendors.filter(v=>["invited","in_progress","submitted"].includes(v.compliance_status)).length}</b></p><p><i className="legend-red"/>Attention <b>{vendors.filter(v=>["needs_attention","expired"].includes(v.compliance_status)).length}</b></p></div></div>
    <div className="mini-compliance"><div><span>W-9 Collection</span><strong>{completeVendors} of {vendors.length||0}</strong></div><div><span>COI Tracking</span><strong>{vendors.filter(v=>v.compliance_status==="approved").length} of {vendors.length||0}</strong></div></div>
+  </section>}
+
+  <section className="panel adaptive-summary">
+   <div className="panel-title"><div><p className="eyebrow">TAILORED TO THIS JOB</p><h3>Your BuildPath workspace</h3></div><button className="text-button" onClick={()=>go("Project Data")}>Customize →</button></div>
+   <p className="panel-copy">BuildPath is showing the workflows most useful for a {String(project.project_type||"construction").toLowerCase()} project{project.user_role?" and your "+project.user_role.replaceAll("_"," ")+" role":""}. Other tools stay available without cluttering the job.</p>
+   <div className="adaptive-tags">{recommended.map(m=><span key={m.key}><b>{m.label}</b><small>{m.reason}</small></span>)}</div>
   </section>
 
   <section className="panel dashboard-list">
@@ -187,24 +197,31 @@ function Ask({project,companies,evidence,events}:{project:Project;companies:Comp
 
 function Costs({project,events}:{project:Project;events:EventRow[]}){const impacted=events.filter(e=>e.cost_impact!=null);const total=impacted.reduce((s,e)=>s+Number(e.cost_impact||0),0);return <section className="panel page-panel"><p className="eyebrow">COST INTELLIGENCE</p><h3>Budget & linked impacts</h3><div className="big-stat"><strong>{money(project.original_budget)}</strong><span>Original budget</span></div>{impacted.length?<div className="event-list">{impacted.map(e=><article key={e.id}><time>{fmtDate(e.start_at)}</time><div><h4>{e.title}</h4><p>{e.description}</p></div><div className="impact-stack"><span>{money(e.cost_impact)}</span></div></article>)}</div>:<Empty text="No cost impacts are linked to project events yet."/>}<div className="total-row"><span>Linked cost impact</span><strong>{money(total)}</strong></div></section>}
 function Schedule({project,events}:{project:Project;events:EventRow[]}){const impacted=events.filter(e=>e.schedule_impact_days!=null);return <section className="panel page-panel"><p className="eyebrow">SCHEDULE</p><h3>Baseline and schedule impacts</h3><div className="schedule-baseline"><div><span>Baseline start</span><strong>{fmtDate(project.baseline_start)}</strong></div><div className="baseline-line"/><div><span>Target finish</span><strong>{fmtDate(project.target_finish)}</strong></div></div>{impacted.length?<div className="event-list">{impacted.map(e=><article key={e.id}><time>{fmtDate(e.start_at)}</time><div><h4>{e.title}</h4><p>{e.description}</p></div><div className="impact-stack"><span>{e.schedule_impact_days} days</span></div></article>)}</div>:<Empty text="No schedule impacts have been linked yet."/>}</section>}
-function ProjectData({project,companies,refresh}:{project:Project;companies:Company[];refresh:()=>void}){
- const[msg,setMsg]=useState("");
- const[busy,setBusy]=useState(false);
- async function uploadHero(e:React.ChangeEvent<HTMLInputElement>){
-  const file=e.target.files?.[0];if(!file)return;setBusy(true);setMsg("");
-  const s=createClient();
-  const ext=file.name.split(".").pop()||"jpg";
-  const path=project.id+"/hero-"+crypto.randomUUID()+"."+ext.replace(/[^a-zA-Z0-9]/g,"");
-  const up=await s.storage.from("project-assets").upload(path,file,{contentType:file.type||undefined,upsert:false});
-  if(up.error){setMsg(up.error.message);setBusy(false);return}
-  const save=await s.from("projects").update({hero_image_url:path,updated_at:new Date().toISOString()}).eq("id",project.id);
-  if(save.error){setMsg(save.error.message);setBusy(false);return}
-  setMsg("Custom project header image saved.");setBusy(false);refresh();e.target.value="";
- }
- async function clearHero(){
-  const r=await createClient().from("projects").update({hero_image_url:null,updated_at:new Date().toISOString()}).eq("id",project.id);
-  if(r.error){setMsg(r.error.message);return}setMsg("Using the automatic "+(project.project_type||"construction")+" header image.");refresh();
- }
- return <><section className="panel page-panel"><div className="panel-title"><div><p className="eyebrow">PROJECT APPEARANCE</p><h3>Header image</h3></div></div><p className="panel-copy">BuildPath automatically chooses imagery and messaging based on the project type. Upload a project-specific image here to override the automatic image.</p><div className="hero-control"><label className="secondary-action"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadHero} disabled={busy}/>{busy?"Uploading…":"Upload custom header"}</label>{project.hero_image_url&&<button className="text-button" onClick={clearHero}>Use automatic image instead</button>}</div>{msg&&<div className="form-message">{msg}</div>}</section><section className="panel page-panel"><p className="eyebrow">CANONICAL PROJECT RECORD</p><h3>Project data</h3><div className="data-table"><div><span>Name</span><strong>{project.name}</strong></div><div><span>Address</span><strong>{project.address||"Not set"}</strong></div><div><span>City / State</span><strong>{[project.city,project.state].filter(Boolean).join(", ")||"Not set"}</strong></div><div><span>Project type</span><strong>{project.project_type||"Not set"}</strong></div><div><span>Baseline start</span><strong>{fmtDate(project.baseline_start)}</strong></div><div><span>Target finish</span><strong>{fmtDate(project.target_finish)}</strong></div><div><span>Original budget</span><strong>{money(project.original_budget)}</strong></div><div><span>Status</span><strong>{project.status}</strong></div><div><span>Connected companies</span><strong>{companies.map(c=>c.name).join(", ")||"None"}</strong></div></div></section></>
+function ProjectData({project,companies,requirements,modulePrefs,workspace,refresh}:{project:Project;companies:Company[];requirements:ProjectRequirement[];modulePrefs:ModulePreference[];workspace:{key:ModuleKey;label:string;visibility:"visible"|"available"|"hidden";reason:string}[];refresh:()=>void}){
+ const[msg,setMsg]=useState("");const[busy,setBusy]=useState(false);
+ async function uploadHero(e:React.ChangeEvent<HTMLInputElement>){const file=e.target.files?.[0];if(!file)return;setBusy(true);setMsg("");const s=createClient();const ext=file.name.split(".").pop()||"jpg";const path=project.id+"/hero-"+crypto.randomUUID()+"."+ext.replace(/[^a-zA-Z0-9]/g,"");const up=await s.storage.from("project-assets").upload(path,file,{contentType:file.type||undefined,upsert:false});if(up.error){setMsg(up.error.message);setBusy(false);return}const save=await s.from("projects").update({hero_image_url:path,updated_at:new Date().toISOString()}).eq("id",project.id);if(save.error){setMsg(save.error.message);setBusy(false);return}setMsg("Custom project header image saved.");setBusy(false);refresh();e.target.value=""}
+ async function clearHero(){const r=await createClient().from("projects").update({hero_image_url:null,updated_at:new Date().toISOString()}).eq("id",project.id);if(r.error){setMsg(r.error.message);return}setMsg("Using the automatic "+(project.project_type||"construction")+" header image.");refresh()}
+ async function saveProfile(e:FormEvent<HTMLFormElement>){e.preventDefault();const f=new FormData(e.currentTarget);const r=await createClient().from("projects").update({user_role:String(f.get("role")||"")||null,project_stage:String(f.get("stage")||"")||null,construction_mode:String(f.get("mode")||"")||null,funding_type:String(f.get("funding")||"")||null,complexity_override:String(f.get("complexity")||"")||null,updated_at:new Date().toISOString()}).eq("id",project.id);if(r.error){setMsg(r.error.message);return}setMsg("Workspace recommendations updated.");refresh()}
+ async function toggleRequirement(key:string,label:string,enabled:boolean){const r=await createClient().from("project_requirements").upsert({project_id:project.id,requirement_key:key,label,enabled,source:"user",updated_at:new Date().toISOString()},{onConflict:"project_id,requirement_key"});if(r.error){setMsg(r.error.message);return}refresh()}
+ async function setVisibility(key:ModuleKey,visibility:"visible"|"available"|"hidden"){const r=await createClient().from("project_module_preferences").upsert({project_id:project.id,module_key:key,visibility,updated_at:new Date().toISOString()},{onConflict:"project_id,module_key"});if(r.error){setMsg(r.error.message);return}refresh()}
+ async function resetVisibility(key:ModuleKey){const r=await createClient().from("project_module_preferences").delete().eq("project_id",project.id).eq("module_key",key);if(r.error){setMsg(r.error.message);return}refresh()}
+ const complexity=inferComplexity(project,companies.length,0);
+ return <>
+  <section className="panel page-panel"><div className="panel-title"><div><p className="eyebrow">ADAPTIVE WORKSPACE</p><h3>Fit BuildPath to this job</h3></div><span className="status-chip">{complexity} complexity</span></div><p className="panel-copy">These few signals determine what BuildPath emphasizes. Sections that are not useful stay out of the way.</p><form className="adaptive-profile" onSubmit={saveProfile}><label>Your role<select name="role" defaultValue={project.user_role||""}><option value="">Not set</option><option value="owner_developer">Owner / Developer</option><option value="general_contractor">General Contractor</option><option value="construction_manager">Construction Manager</option><option value="project_manager">Project Manager</option><option value="superintendent">Superintendent / Field</option><option value="finance_controller">Finance / Controller</option><option value="architect_engineer">Architect / Engineer</option><option value="subcontractor">Subcontractor / Vendor</option></select></label><label>Project stage<select name="stage" defaultValue={project.project_stage||""}><option value="planning">Planning</option><option value="design">Design</option><option value="preconstruction">Preconstruction</option><option value="procurement">Procurement</option><option value="construction">Construction</option><option value="commissioning">Commissioning</option><option value="closeout">Closeout</option></select></label><label>Type of work<select name="mode" defaultValue={project.construction_mode||""}><option value="new_construction">New construction</option><option value="renovation">Renovation</option><option value="tenant_improvement">Tenant improvement</option><option value="addition">Addition</option><option value="remediation">Remediation</option><option value="capital_improvement">Capital improvement</option></select></label><label>Funding<select name="funding" defaultValue={project.funding_type||""}><option value="private">Private</option><option value="public">Public / government</option><option value="mixed">Mixed</option></select></label><label>Complexity override<select name="complexity" defaultValue={project.complexity_override||""}><option value="">Automatic</option><option value="simple">Simple</option><option value="standard">Standard</option><option value="complex">Complex</option></select></label><button className="primary-action">Update workspace</button></form></section>
+  <section className="panel page-panel"><div className="panel-title"><div><p className="eyebrow">PROJECT REQUIREMENTS</p><h3>Only require what this job actually needs</h3></div></div><div className="requirement-toggle-grid">{requirementOptions.map(([key,label])=>{const row=requirements.find(r=>r.requirement_key===key);return <label key={key}><input type="checkbox" checked={!!row?.enabled} onChange={e=>toggleRequirement(key,label,e.target.checked)}/><span><strong>{label}</strong><small>{row?.source==="document"?"Detected from project documents":row?.source==="inferred"?"Recommended for this project":"Optional"}</small></span></label>})}</div></section>
+  <section className="panel page-panel"><div className="panel-title"><div><p className="eyebrow">CUSTOMIZE WORKSPACE</p><h3>Recommended sections</h3></div><span className="panel-copy">Automatic by default. Override only when needed.</span></div><div className="module-control-list">{workspace.map(m=>{const pref=modulePrefs.find(p=>p.module_key===m.key);return <div key={m.key}><span><strong>{m.label}</strong><small>{m.reason}</small></span><select value={pref?.visibility||"auto"} onChange={e=>e.target.value==="auto"?resetVisibility(m.key):setVisibility(m.key,e.target.value as "visible"|"available"|"hidden")}><option value="auto">Automatic · {m.visibility}</option><option value="visible">Show</option><option value="available">Available</option><option value="hidden">Hide</option></select></div>})}</div></section>
+  <section className="panel page-panel"><div className="panel-title"><div><p className="eyebrow">PROJECT APPEARANCE</p><h3>Header image</h3></div></div><p className="panel-copy">BuildPath automatically chooses imagery and messaging based on the project type. Upload a project-specific image to override it.</p><div className="hero-control"><label className="secondary-action"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadHero} disabled={busy}/>{busy?"Uploading…":"Upload custom header"}</label>{project.hero_image_url&&<button className="text-button" onClick={clearHero}>Use automatic image instead</button>}</div>{msg&&<div className="form-message">{msg}</div>}</section>
+  <section className="panel page-panel"><p className="eyebrow">CANONICAL PROJECT RECORD</p><h3>Project data</h3><div className="data-table"><div><span>Name</span><strong>{project.name}</strong></div><div><span>Address</span><strong>{project.address||"Not set"}</strong></div><div><span>City / State</span><strong>{[project.city,project.state].filter(Boolean).join(", ")||"Not set"}</strong></div><div><span>Project type</span><strong>{project.project_type||"Not set"}</strong></div><div><span>Baseline start</span><strong>{fmtDate(project.baseline_start)}</strong></div><div><span>Target finish</span><strong>{fmtDate(project.target_finish)}</strong></div><div><span>Original budget</span><strong>{money(project.original_budget)}</strong></div><div><span>Status</span><strong>{project.status}</strong></div><div><span>Connected companies</span><strong>{companies.map(c=>c.name).join(", ")||"None"}</strong></div></div></section>
+ </>;
 }
+
+function AdaptiveModule({moduleKey,project,events,evidence}:{moduleKey:ModuleKey;project:Project;events:EventRow[];evidence:Evidence[]}){
+ const labels:Record<string,string>={selections:"Selections",inspections:"Inspections",rfis:"RFIs",submittals:"Submittals",change_orders:"Change Orders",daily_reports:"Daily Reports",compliance:"Compliance",procurement:"Procurement",safety:"Safety",commissioning:"Commissioning"};
+ const label=labels[moduleKey]||moduleKey.replaceAll("_"," ");
+ const needle=moduleKey.replace("_orders","").replace("_reports","").replace("rfis","rfi");
+ const matches=events.filter(e=>e.event_type.toLowerCase().includes(needle)||e.title.toLowerCase().includes(label.toLowerCase().replace(/s$/,""))).slice(0,20);
+ const docs=evidence.filter(e=>(e.title||"").toLowerCase().includes(label.toLowerCase().replace(/s$/,""))||e.evidence_type.toLowerCase().includes(needle)).slice(0,10);
+ return <section className="panel page-panel"><div className="panel-title"><div><p className="eyebrow">ADAPTIVE PROJECT WORKFLOW</p><h3>{label}</h3></div><span className="status-chip">{project.project_stage||"project"}</span></div><p className="panel-copy">This section is visible because BuildPath determined it is relevant to this job. As project data grows, BuildPath will connect matching events and evidence here.</p>{matches.length?<div className="event-list">{matches.map(e=><article key={e.id}><time>{fmtDate(e.start_at)}</time><div><span className="type">{e.event_type}</span><h4>{e.title}</h4><p>{e.description||"No description"}</p></div></article>)}</div>:<Empty text={"No "+label.toLowerCase()+" records have been connected yet."}/>} {docs.length>0&&<div className="adaptive-docs"><h4>Related evidence</h4>{docs.map(d=><p key={d.id}>▤ {d.title||d.evidence_type}</p>)}</div>}</section>
+}
+
 function Empty({text}:{text:string}){return <div className="empty-state"><span>＋</span><p>{text}</p></div>}
