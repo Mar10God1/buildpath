@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { AppSidebar } from "@/components/app-sidebar";
 import { getProjectVisual } from "@/lib/project-visuals";
 
-type Project={id:string;name:string;project_type:string|null;hero_image_url:string|null};
+type Project={id:string;organization_id:string;name:string;project_type:string|null;hero_image_url:string|null};
 type Candidate={id:string;candidate_type:string;candidate_key:string|null;proposed_value:Record<string,unknown>;confidence:number|null;status:string};
 type Evidence={id:string;title:string|null;evidence_type:string;created_at:string};
 
@@ -21,7 +21,7 @@ export default function UploadExtractPage(){
   const auth=await s.auth.getUser();
   if(!auth.data.user){window.location.href="/login?next="+encodeURIComponent(window.location.pathname+window.location.search);return}
   const wanted=new URLSearchParams(window.location.search).get("project");
-  const pr=await s.from("projects").select("id,name,project_type,hero_image_url").order("created_at",{ascending:false});
+  const pr=await s.from("projects").select("id,organization_id,name,project_type,hero_image_url").order("created_at",{ascending:false});
   const list=(pr.data||[]) as Project[];
   const p=list.find(x=>x.id===wanted)||list[0];
   if(!p){window.location.href="/setup";return}
@@ -65,9 +65,36 @@ export default function UploadExtractPage(){
    const description=typeof v.description==="string"?v.description:null;
    const eventType=typeof v.event_type==="string"?v.event_type:"document";
    const rawDate=typeof v.date==="string"?v.date:null;
+   const costImpact=typeof v.cost_impact==="number"?v.cost_impact:null;
+   const scheduleDays=typeof v.schedule_impact_days==="number"?Math.round(v.schedule_impact_days):null;
    let startAt:string|null=null;
    if(rawDate){const parsed=new Date(rawDate);if(!Number.isNaN(parsed.getTime()))startAt=parsed.toISOString()}
-   await s.from("project_events").insert({project_id:project.id,event_type:eventType,title,description,start_at:startAt,date_precision:"day"});
+   await s.from("project_events").insert({project_id:project.id,event_type:eventType,title,description,start_at:startAt,date_precision:"day",cost_impact:costImpact,schedule_impact_days:scheduleDays,confidence:candidate.confidence});
+  }
+  if(status==="accepted"&&candidate.candidate_type==="commitment"){
+   const v=candidate.proposed_value;
+   const title=typeof v.title==="string"?v.title:"Field commitment";
+   const description=typeof v.description==="string"?v.description:null;
+   const rawDate=typeof v.date==="string"?v.date:null;
+   let startAt:string|null=null;
+   if(rawDate){const parsed=new Date(rawDate);if(!Number.isNaN(parsed.getTime()))startAt=parsed.toISOString()}
+   await s.from("project_events").insert({project_id:project.id,event_type:"commitment",title,description,start_at:startAt,date_precision:"day",confidence:candidate.confidence});
+  }
+  if(status==="accepted"&&candidate.candidate_type==="company"){
+   const v=candidate.proposed_value;
+   const name=typeof v.name==="string"?v.name.trim():"";
+   if(name){
+    const existing=await s.from("companies").select("id").eq("organization_id",project.organization_id).ilike("name",name).limit(1);
+    if(!existing.data?.length)await s.from("companies").insert({organization_id:project.organization_id,name,company_type:"vendor"});
+   }
+  }
+  if(status==="accepted"&&candidate.candidate_type==="person"){
+   const v=candidate.proposed_value;
+   const email=typeof v.email==="string"?v.email.trim().toLowerCase():"";
+   if(email){
+    const existing=await s.from("people").select("id").eq("organization_id",project.organization_id).ilike("email",email).limit(1);
+    if(!existing.data?.length)await s.from("people").insert({organization_id:project.organization_id,email});
+   }
   }
   if(status==="accepted"&&candidate.candidate_type==="requirement"){
    const v=candidate.proposed_value;
@@ -81,7 +108,7 @@ export default function UploadExtractPage(){
 
  function summary(c:Candidate){
   const v=c.proposed_value;
-  for(const key of ["summary","description","email","amount_text","date"]){
+  for(const key of ["summary","description","email","amount_text","amount","vendor_name","date"]){
    const val=v[key];if(typeof val==="string")return val;
   }
   return JSON.stringify(v);
