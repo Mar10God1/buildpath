@@ -14,6 +14,10 @@ type FormState = {
   startDate: string;
   targetFinish: string;
   budget: string;
+  userRole: string;
+  projectStage: string;
+  constructionMode: string;
+  fundingType: string;
 };
 
 const initial: FormState = {
@@ -27,6 +31,10 @@ const initial: FormState = {
   startDate: "",
   targetFinish: "",
   budget: "",
+  userRole: "owner_developer",
+  projectStage: "planning",
+  constructionMode: "new_construction",
+  fundingType: "private",
 };
 
 function dollarsToNumber(value: string) {
@@ -43,7 +51,7 @@ export function ProjectSetup() {
   const [busy, setBusy] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
-  const progress = useMemo(() => Math.round((step / 3) * 100), [step]);
+  const progress = useMemo(() => Math.round((step / 4) * 100), [step]);
   const update = (key: keyof FormState, value: string) => setForm((f) => ({ ...f, [key]: value }));
 
   useEffect(() => {
@@ -108,6 +116,10 @@ export function ProjectSetup() {
       baseline_start: form.startDate || null,
       target_finish: form.targetFinish || null,
       original_budget: dollarsToNumber(form.budget),
+      user_role: form.userRole,
+      project_stage: form.projectStage,
+      construction_mode: form.constructionMode,
+      funding_type: form.fundingType,
       created_by: user.id,
     });
 
@@ -171,7 +183,7 @@ export function ProjectSetup() {
             <h1>Give BuildPath the project baseline.</h1>
             <p>Start with what you know. Missing information can be filled in later from project evidence.</p>
           </div>
-          <div className="setup-progress"><strong>{progress}%</strong><span>Step {step} of 3</span></div>
+          <div className="setup-progress"><strong>{progress}%</strong><span>Step {step} of 4</span></div>
         </div>
 
         <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>
@@ -192,6 +204,7 @@ export function ProjectSetup() {
 
         {step === 2 && (
           <div className="form-grid">
+            <label className="wide">Your role on this project<select value={form.userRole} onChange={(e)=>update("userRole",e.target.value)}><option value="owner_developer">Owner / Developer</option><option value="general_contractor">General Contractor</option><option value="construction_manager">Construction Manager</option><option value="project_manager">Project Manager</option><option value="superintendent">Superintendent / Field</option><option value="finance_controller">Finance / Controller</option><option value="architect_engineer">Architect / Engineer</option><option value="subcontractor">Subcontractor / Vendor</option><option value="other">Other</option></select></label>
             <label className="wide">Owner / Developer<input value={form.owner} onChange={(e) => update("owner", e.target.value)} placeholder="Owner organization" /></label>
             <label className="wide">General contractor<input value={form.generalContractor} onChange={(e) => update("generalContractor", e.target.value)} placeholder="General contractor" /></label>
             <div className="setup-note wide"><span>CONNECTED MODEL</span><p>Companies and people become reusable records. Later, emails, RFIs, change orders and meetings can all connect back to the same company or person instead of creating duplicate data.</p></div>
@@ -200,6 +213,9 @@ export function ProjectSetup() {
 
         {step === 3 && (
           <div className="form-grid">
+            <label>Project stage<select value={form.projectStage} onChange={(e)=>update("projectStage",e.target.value)}><option value="planning">Planning</option><option value="design">Design</option><option value="preconstruction">Preconstruction</option><option value="procurement">Procurement</option><option value="construction">Construction</option><option value="commissioning">Commissioning</option><option value="closeout">Closeout</option></select></label>
+            <label>Type of work<select value={form.constructionMode} onChange={(e)=>update("constructionMode",e.target.value)}><option value="new_construction">New construction</option><option value="renovation">Renovation</option><option value="tenant_improvement">Tenant improvement</option><option value="addition">Addition</option><option value="remediation">Remediation</option><option value="capital_improvement">Capital improvement / maintenance</option></select></label>
+            <label className="wide">Funding / ownership<select value={form.fundingType} onChange={(e)=>update("fundingType",e.target.value)}><option value="private">Private</option><option value="public">Public / government</option><option value="mixed">Mixed / public-private</option></select></label>
             <label>Baseline start<input type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)} /></label>
             <label>Target completion<input type="date" value={form.targetFinish} onChange={(e) => update("targetFinish", e.target.value)} /></label>
             <label className="wide">Original budget<input value={form.budget} onChange={(e) => update("budget", e.target.value)} placeholder="$12,400,000" /></label>
@@ -207,12 +223,14 @@ export function ProjectSetup() {
           </div>
         )}
 
+        {step === 4 && (<div className="form-grid"><label>Baseline start<input type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)} /></label><label>Target completion<input type="date" value={form.targetFinish} onChange={(e) => update("targetFinish", e.target.value)} /></label><label className="wide">Original budget<input value={form.budget} onChange={(e) => update("budget", e.target.value)} placeholder="$12,400,000" /></label><div className="setup-note wide"><span>ADAPTIVE WORKSPACE</span><p>BuildPath will start with only the modules that fit this project and your role. You can change any recommendation later.</p></div></div>)}
+
         {error && <div className="form-message">{error}</div>}
 
         <div className="setup-actions">
           <button className="secondary-action" onClick={() => step === 1 ? window.location.assign("/") : setStep((s) => Math.max(1, s - 1))}>{step === 1 ? "Cancel" : "Back"}</button>
-          {step < 3
-            ? <button className="primary-action" onClick={() => setStep((s) => Math.min(3, s + 1))}>Continue</button>
+          {step < 4
+            ? <button className="primary-action" onClick={() => setStep((s) => Math.min(4, s + 1))}>Continue</button>
             : <button className="primary-action" onClick={finish} disabled={busy}>{busy ? "Creating…" : "Create project"}</button>}
         </div>
       </section>
