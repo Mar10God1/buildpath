@@ -108,9 +108,10 @@ export default function UploadExtractPage(){
 
  function summary(c:Candidate){
   const v=c.proposed_value;
-  for(const key of ["summary","description","email","amount_text","amount","vendor_name","date"]){
+  for(const key of ["summary","description","email","amount_text","vendor_name","date"]){
    const val=v[key];if(typeof val==="string")return val;
   }
+  if(typeof v.amount==="number")return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(v.amount);
   return JSON.stringify(v);
  }
 
