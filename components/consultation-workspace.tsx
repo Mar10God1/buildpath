@@ -34,7 +34,7 @@ export function ConsultationWorkspace(){
  useEffect(()=>{load()},[]);
  const impactDays=useMemo(()=>events.filter(e=>e.event_type!=="baseline").reduce((n,e)=>n+(Number(e.schedule_impact_days)||0),0),[events]);
  const impactCost=useMemo(()=>events.filter(e=>e.event_type!=="baseline").reduce((n,e)=>n+(Number(e.cost_impact)||0),0),[events]);
- const currentTarget=project?shift(project.target_finish,impactDays):null,client=companies.find(c=>c.company_type==="client")?.name||"Client",changes=events.filter(e=>e.event_type!=="baseline");
+ const currentTarget=project?shift(project.target_finish,impactDays):null,client=companies.find(c=>c.company_type==="client")?.name||"Client",changes=events.filter(e=>!["baseline","meeting"].includes(e.event_type));
  async function addEntry(e:FormEvent){e.preventDefault();if(!project)return;const s=createClient(),r=await s.from("project_events").insert({project_id:project.id,event_type:entry.type,title:entry.title,description:entry.description||null,start_at:entry.date||null,date_precision:"day",status:entry.status,cost_impact:entry.cost?Number(entry.cost.replace(/[^0-9.-]/g,"")):0,schedule_impact_days:entry.days?Number(entry.days):0});if(r.error){setError(r.error.message);return}setShowAdd(false);setEntry({type:"change",title:"",description:"",date:new Date().toISOString().slice(0,10),days:"",cost:"",status:"approved"});await load(project.id)}
  async function logout(){await createClient().auth.signOut();window.location.href="/consultationpath/login"}
  if(loading||!project)return <main className="cp-loading">Loading ConsultationPath…</main>;
