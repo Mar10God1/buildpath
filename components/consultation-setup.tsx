@@ -1,0 +1,20 @@
+"use client";
+import { FormEvent, useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+
+export function ConsultationSetup(){
+ const[form,setForm]=useState({name:"",client:"",consultancy:"",start:"",target:"",value:"",platform:"Workday Adaptive Planning"});
+ const[busy,setBusy]=useState(false);const[error,setError]=useState("");
+ useEffect(()=>{createClient().auth.getUser().then(({data})=>{if(!data.user)window.location.href="/consultationpath/login"})},[]);
+ const u=(k:string,v:string)=>setForm(f=>({...f,[k]:v}));
+ async function submit(e:FormEvent){e.preventDefault();setBusy(true);setError("");const s=createClient();const {data:{user}}=await s.auth.getUser();if(!user){window.location.href="/consultationpath/login";return}const organizationId=crypto.randomUUID(),projectId=crypto.randomUUID();
+  const a=await s.from("organizations").insert({id:organizationId,name:form.name?form.name+" Team":"ConsultationPath Team",created_by:user.id});if(a.error){setError(a.error.message);setBusy(false);return}
+  const b=await s.from("organization_members").insert({organization_id:organizationId,user_id:user.id,role:"owner"});if(b.error){setError(b.error.message);setBusy(false);return}
+  const c=await s.from("projects").insert({id:projectId,organization_id:organizationId,name:form.name||"Client Engagement",project_type:"Consulting Engagement",baseline_start:form.start||null,target_finish:form.target||null,original_budget:form.value?Number(form.value.replace(/[^0-9.-]/g,"")):null,project_stage:"delivery",construction_mode:"consulting",funding_type:"client",created_by:user.id});if(c.error){setError(c.error.message);setBusy(false);return}
+  await s.from("project_user_preferences").upsert({project_id:projectId,user_id:user.id,user_role:"consultant",field_capture_default:false,updated_at:new Date().toISOString()},{onConflict:"project_id,user_id"});
+  const companies=[] as {organization_id:string;name:string;company_type:string}[];if(form.client)companies.push({organization_id:organizationId,name:form.client,company_type:"client"});if(form.consultancy)companies.push({organization_id:organizationId,name:form.consultancy,company_type:"consultancy"});if(companies.length)await s.from("companies").insert(companies);
+  await s.from("project_events").insert({project_id:projectId,event_type:"baseline",title:"Original engagement baseline",description:form.platform,start_at:form.start||null,end_at:form.target||null,date_precision:"day",status:"approved",schedule_impact_days:0,cost_impact:0});
+  window.location.href="/consultationpath?project="+projectId;
+ }
+ return <main className="cp-setup"><section className="cp-setup-card"><div className="cp-brand"><span className="cp-mark">C</span><strong>Consultation<span>Path</span></strong></div><p className="cp-kicker">NEW ENGAGEMENT</p><h1>Start with the original agreement.</h1><p>We’ll preserve the baseline so every later request, dependency and decision can be measured against it.</p><form className="cp-setup-grid" onSubmit={submit}><label className="wide">Engagement name<input required value={form.name} onChange={e=>u("name",e.target.value)} placeholder="Adaptive Planning Implementation"/></label><label>Client<input value={form.client} onChange={e=>u("client",e.target.value)} placeholder="Acme Corp"/></label><label>Consulting firm<input value={form.consultancy} onChange={e=>u("consultancy",e.target.value)} placeholder="Your firm"/></label><label>Platform / workstream<input value={form.platform} onChange={e=>u("platform",e.target.value)}/></label><label>Original contract value<input value={form.value} onChange={e=>u("value",e.target.value)} placeholder="$125,000"/></label><label>Kickoff<input type="date" value={form.start} onChange={e=>u("start",e.target.value)}/></label><label>Original go-live<input type="date" value={form.target} onChange={e=>u("target",e.target.value)}/></label>{error&&<div className="cp-message wide">{error}</div>}<button className="cp-primary wide" disabled={busy}>{busy?"Creating…":"Create engagement →"}</button></form></section></main>;
+}
