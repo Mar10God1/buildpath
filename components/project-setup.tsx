@@ -184,7 +184,7 @@ export function ProjectSetup() {
             <label>State<input value={form.state} onChange={(e) => update("state", e.target.value)} /></label>
             <label className="wide">Project type
               <select value={form.projectType} onChange={(e) => update("projectType", e.target.value)}>
-                <option>Commercial</option><option>Multifamily</option><option>Healthcare</option><option>Industrial</option><option>Residential</option><option>Infrastructure</option><option>Other</option>
+                <option>Residential</option><option>Multifamily</option><option>Commercial</option><option>Industrial</option><option>Healthcare</option><option>Education</option><option>Hospitality</option><option>Civic / Public</option><option>Infrastructure</option><option>Other</option>
               </select>
             </label>
           </div>
