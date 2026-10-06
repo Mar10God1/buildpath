@@ -36,6 +36,8 @@ export function ConsultationMeetings({projectId,evidence,refresh}:{projectId:str
  async function save(){
   if(!title.trim()||!transcript.trim()){setMessage("Add a meeting title and transcript first.");return}
   const s=createClient(),u=await s.auth.getUser();const occurred_at=date?date+"T12:00:00":null;
+  const existing=await s.from("evidence").select("id").eq("project_id",projectId).eq("evidence_type","meeting_transcript").eq("raw_text",transcript.trim()).maybeSingle();
+  if(existing.data){setMessage("This transcript is already in the engagement. Nothing was duplicated.");return}
   const a=await s.from("evidence").insert({project_id:projectId,evidence_type:"meeting_transcript",title:title.trim(),source_system:source||"manual",occurred_at,raw_text:transcript.trim(),created_by:u.data.user?.id||null}).select("id").single();
   if(a.error){setMessage(a.error.message);return}
   const b=await s.from("project_events").insert({project_id:projectId,event_type:"meeting",title:title.trim(),description:"Meeting transcript captured in ConsultationPath",start_at:date||null,date_precision:"day",status:"complete",cost_impact:0,schedule_impact_days:0,created_by:u.data.user?.id||null});
