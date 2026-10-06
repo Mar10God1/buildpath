@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { FieldAccess } from "@/components/field-access";
 import { inferComplexity, requirementOptions, type ModuleDecision, type ProjectRequirement } from "@/lib/adaptive-workspace";
 
 type ProjectLike={
@@ -102,6 +103,8 @@ export function AdaptiveSettings({
    <div className="panel-title"><div><p className="eyebrow">YOUR WORKSPACE</p><h3>What BuildPath shows you</h3></div><span className="panel-copy">{visible.length} shown · {available.length} available · {hidden.length} hidden</span></div>
    <div className="module-control-list">{modules.map(m=><div key={m.key}><span><strong>{m.label}</strong><small>{m.reason}</small></span><select defaultValue="auto" onChange={e=>overrideModule(m.key,e.target.value)}><option value="auto">Automatic · {m.visibility}</option><option value="visible">Show me this</option><option value="available">Keep available</option><option value="hidden">Hide it</option></select></div>)}</div>
   </section>
+
+  <FieldAccess projectId={project.id}/>
 
   {suggestions.length>0&&<section className="panel page-panel"><p className="eyebrow">SUGGESTED NEXT ACTIONS</p><h3>Based on this job</h3><div className="adaptive-suggestions">{suggestions.map((s,i)=><p key={i}><span>→</span>{s}</p>)}</div></section>}
  </div>;
