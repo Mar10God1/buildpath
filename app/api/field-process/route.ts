@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { generateText } from "ai";
 
 export const runtime="nodejs";
 export const maxDuration=30;
@@ -177,9 +176,12 @@ Field context:
 ${context}`;
 
   try{
-    const result=await generateText({
+    const ai:any=await import("ai");
+    const content:any[]=[{type:"text",text:prompt}];
+    if(imageBytes)content.push({type:"image",image:imageBytes,mediaType:args.mediaType||undefined});
+    const result=await ai.generateText({
       model:"openai/gpt-5-nano",
-      prompt
+      messages:[{role:"user",content}]
     });
     return{intel:parseJsonObject(result.text),used:true,model:"openai/gpt-5-nano"};
   }catch{
