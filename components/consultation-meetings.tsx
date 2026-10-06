@@ -20,14 +20,29 @@ export function ConsultationMeetings({projectId,evidence,refresh}:{projectId:str
  }
  function stopMic(){try{recognition.current?.stop()}catch{}setListening(false)}
  async function loadFile(e:ChangeEvent<HTMLInputElement>){const file=e.target.files?.[0];if(!file)return;setSource(file.name.endsWith(".vtt")?"Video transcript":file.name.endsWith(".srt")?"Caption transcript":"Transcript file");const text=await file.text();setTranscript(text);if(!title)setTitle(file.name.replace(/\.(txt|vtt|srt|csv)$/i,""))}
+ function extractCandidates(text:string,evidenceId:string){
+  const sentences=text.replace(/\r/g," ").split(/(?<=[.!?])\s+|\n+/).map(s=>s.trim()).filter(s=>s.length>18);
+  const rules=[
+   {subtype:"change",test:/\b(add|change|expand|include|new requirement|out of scope|scope)\b/i,title:"Possible scope change"},
+   {subtype:"decision",test:/\b(decided|agreed|approved|decision|we will use|go with)\b/i,title:"Possible decision"},
+   {subtype:"dependency",test:/\b(client|customer|finance|fp&a|team)\b.*\b(provide|send|deliver|upload|confirm|approve|owe|waiting)\b/i,title:"Possible client dependency"},
+   {subtype:"commitment",test:/\b(i will|we will|we'll|by friday|by monday|by next|commit|follow up)\b/i,title:"Possible commitment"},
+   {subtype:"risk",test:/\b(risk|delay|blocked|blocker|issue|concern|slip|late)\b/i,title:"Possible risk"}
+  ];
+  const seen=new Set<string>(),out:any[]=[];
+  for(const sentence of sentences){for(const rule of rules){if(rule.test.test(sentence)){const key=rule.subtype+"|"+sentence.toLowerCase();if(seen.has(key))continue;seen.add(key);out.push({candidate_type:rule.subtype==="commitment"?"commitment":"event",candidate_key:rule.subtype,confidence:.72,proposed_value:{subtype:rule.subtype,title:rule.title,description:sentence,source_quote:sentence,date,evidence_id:evidenceId,schedule_impact_days:0,cost_impact:0,status:"open"}});break}}}
+  return out.slice(0,12);
+ }
  async function save(){
   if(!title.trim()||!transcript.trim()){setMessage("Add a meeting title and transcript first.");return}
-  const s=createClient();const occurred_at=date?date+"T12:00:00":null;
-  const a=await s.from("evidence").insert({project_id:projectId,evidence_type:"meeting_transcript",title:title.trim(),source_system:source||"manual",occurred_at,raw_text:transcript.trim()});
+  const s=createClient(),u=await s.auth.getUser();const occurred_at=date?date+"T12:00:00":null;
+  const a=await s.from("evidence").insert({project_id:projectId,evidence_type:"meeting_transcript",title:title.trim(),source_system:source||"manual",occurred_at,raw_text:transcript.trim(),created_by:u.data.user?.id||null}).select("id").single();
   if(a.error){setMessage(a.error.message);return}
-  const b=await s.from("project_events").insert({project_id:projectId,event_type:"meeting",title:title.trim(),description:"Meeting transcript captured in ConsultationPath",start_at:date||null,date_precision:"day",status:"complete",cost_impact:0,schedule_impact_days:0});
+  const b=await s.from("project_events").insert({project_id:projectId,event_type:"meeting",title:title.trim(),description:"Meeting transcript captured in ConsultationPath",start_at:date||null,date_precision:"day",status:"complete",cost_impact:0,schedule_impact_days:0,created_by:u.data.user?.id||null});
   if(b.error){setMessage("Transcript saved, but timeline entry failed: "+b.error.message);refresh();return}
-  setTitle("");setTranscript("");setSource("Live meeting");setMessage("Meeting saved to the engagement history.");refresh();
+  const job=await s.from("ingestion_jobs").insert({project_id:projectId,evidence_id:a.data.id,storage_path:"inline/"+a.data.id,file_name:title.trim()+".txt",mime_type:"text/plain",status:"needs_review",extracted_text:transcript.trim(),extracted_metadata:{source:"meeting",meeting_title:title.trim()},created_by:u.data.user?.id||null}).select("id").single();
+  if(!job.error){const candidates=extractCandidates(transcript.trim(),a.data.id).map(x=>({...x,job_id:job.data.id,project_id:projectId}));if(candidates.length)await s.from("extraction_candidates").insert(candidates);else await s.from("ingestion_jobs").update({status:"complete",completed_at:new Date().toISOString()}).eq("id",job.data.id)}
+  setTitle("");setTranscript("");setSource("Live meeting");setMessage("Meeting saved. Review suggested changes in Review Inbox.");refresh();
  }
  return <section className="cp-meetings">
   <div className="cp-card">
