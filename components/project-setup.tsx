@@ -216,10 +216,7 @@ export function ProjectSetup() {
             <label>Project stage<select value={form.projectStage} onChange={(e)=>update("projectStage",e.target.value)}><option value="planning">Planning</option><option value="design">Design</option><option value="preconstruction">Preconstruction</option><option value="procurement">Procurement</option><option value="construction">Construction</option><option value="commissioning">Commissioning</option><option value="closeout">Closeout</option></select></label>
             <label>Type of work<select value={form.constructionMode} onChange={(e)=>update("constructionMode",e.target.value)}><option value="new_construction">New construction</option><option value="renovation">Renovation</option><option value="tenant_improvement">Tenant improvement</option><option value="addition">Addition</option><option value="remediation">Remediation</option><option value="capital_improvement">Capital improvement / maintenance</option></select></label>
             <label className="wide">Funding / ownership<select value={form.fundingType} onChange={(e)=>update("fundingType",e.target.value)}><option value="private">Private</option><option value="public">Public / government</option><option value="mixed">Mixed / public-private</option></select></label>
-            <label>Baseline start<input type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)} /></label>
-            <label>Target completion<input type="date" value={form.targetFinish} onChange={(e) => update("targetFinish", e.target.value)} /></label>
-            <label className="wide">Original budget<input value={form.budget} onChange={(e) => update("budget", e.target.value)} placeholder="$12,400,000" /></label>
-            <div className="setup-note wide"><span>DON&apos;T KNOW EVERYTHING?</span><p>That is expected. BuildPath is designed to reconstruct missing project history from evidence and preserve uncertainty rather than forcing made-up precision.</p></div>
+            <div className="setup-note wide"><span>KEEP IT RELEVANT</span><p>These answers tell BuildPath which workflows matter. Irrelevant sections stay out of the way and can still be added later if the job changes.</p></div>
           </div>
         )}
 
