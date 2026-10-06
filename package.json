@@ -13,7 +13,7 @@
     "react-dom": "^19.2.0",
     "@supabase/supabase-js": "2.117.2",
     "pdf-parse": "2.4.5",
-    "ai": "7.0.123"
+    "@vercel/oidc": "4.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
