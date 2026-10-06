@@ -546,3 +546,46 @@ a{color:inherit}
 .adaptive-tags>button{display:flex;flex-direction:column;gap:2px;border:1px solid #e1e0dc;background:#faf9f6;border-radius:5px;padding:8px 10px;min-width:140px;text-align:left;cursor:pointer;color:var(--text)}
 .adaptive-tags>button:hover{border-color:#efb58d;background:#fff8f2}
 .adaptive-tags>button b{font-size:10px}.adaptive-tags>button small{font-size:8px;color:var(--muted)}
+
+/* ── Small-builder milestone: daily logs & change orders ─────────────────── */
+.builder-two-col{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px;align-items:start}
+.builder-two-col .page-panel{margin:0}
+.date-input{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:#fff;color:var(--text)}
+.log-editor,.co-editor{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+.log-status{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.log-status small{color:var(--muted)}
+.log-section{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--muted)}
+.log-section textarea,.log-section input,.source-box,.line-row input{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;font-weight:400;color:var(--text);background:#fff;resize:vertical}
+.log-section textarea[readonly],.log-section input[readonly],.line-row input[readonly]{background:var(--surface)}
+.log-section textarea:focus,.log-section input:focus,.source-box:focus,.line-row input:focus{outline:2px solid var(--orange);outline-offset:-1px;border-color:transparent}
+.source-box{margin-bottom:4px}
+.log-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid #eee;padding:10px 4px;cursor:pointer;font:inherit;color:inherit}
+.log-row:hover{background:var(--surface)}
+.log-row.selected{background:#fff4ec;border-radius:10px}
+.log-row p{margin:0;display:flex;flex-direction:column;gap:2px;min-width:0}
+.log-row small{color:var(--muted)}
+.co-list-title{margin-top:22px}
+.co-list-title small{color:var(--muted)}
+.co-meta{display:grid;grid-template-columns:1.4fr 1fr .8fr;gap:10px}
+.line-items{display:flex;flex-direction:column;gap:8px;border-top:1px solid #eee;padding-top:12px}
+.line-head,.line-row{display:grid;grid-template-columns:minmax(0,2.6fr) .6fr .6fr 1fr 1fr 28px;gap:8px;align-items:center}
+.line-head span{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.line-row strong{font-size:14px;text-align:right}
+.line-row input{padding:8px 10px}
+.co-source{background:var(--surface);border:1px solid #eee;border-radius:10px;padding:10px 12px}
+.co-source summary{cursor:pointer;font-weight:600}
+.co-source p{white-space:pre-wrap;color:var(--muted);margin:8px 0 0}
+@media(max-width:1080px){.builder-two-col{grid-template-columns:1fr}}
+@media(max-width:620px){.co-meta{grid-template-columns:1fr}.line-head{display:none}.line-row{grid-template-columns:1fr 1fr;padding-bottom:10px;border-bottom:1px solid #eee}.line-row input:first-child{grid-column:1/-1}}
+@media print{
+ .sidebar,.global-topbar,.compact-project-hero .secondary-action,.setup-actions,.form-message,.source-box,.record-button,.co-list-title,.compact-list,.text-button{display:none!important}
+ .shell{display:block}.main{padding:0}
+ .compact-project-hero{background:none!important;color:#000;padding:0 0 12px}
+ .builder-two-col{display:block}.builder-two-col>section:only-child,.builder-two-col>section{box-shadow:none;border:0}
+ .log-section textarea,.log-section input,.line-row input{border:0;padding:2px 0;background:none!important;resize:none}
+}
+.compact-list .log-row p strong{font-size:13px;white-space:normal}
+.compact-list .log-row p small{font-size:11px;white-space:normal}
+.log-row .approval-code{flex:0 0 auto;width:38px;font-size:10px}
+.adaptive-tags>a{display:flex;flex-direction:column;gap:2px;border:1px solid #e1e0dc;background:#faf9f6;border-radius:5px;padding:8px 10px;min-width:140px;text-align:left;color:var(--text);text-decoration:none}
+.adaptive-tags>a:hover{border-color:#efb58d;background:#fff8f2}

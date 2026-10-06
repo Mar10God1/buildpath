@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { PDFParse } from "pdf-parse";
+import { BUILDER_SYSTEM, CLAUDE_MODEL, aiConfigured, claudeStructured } from "@/lib/ai/claude";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -48,6 +49,51 @@ function candidates(text:string,fileName:string){
   return out.slice(0,40);
 }
 
+type AIExtraction={
+  document_type:string; summary:string;
+  dates:{date:string;what:string}[];
+  amounts:{amount:number;what:string}[];
+  people:{name:string|null;email:string|null;company:string|null;role:string|null}[];
+  change_requests:{title:string;detail:string;amount:number|null}[];
+  requirements:string[];
+};
+const REQUIREMENT_KEYS=["insurance","prevailing_wage","certified_payroll","bonding","dbe_wbe","permits","infection_control","safety_program","commissioning","public_reporting","submittals","rfi_tracking"];
+const REQUIREMENT_LABELS:Record<string,string>={insurance:"Insurance / COI",prevailing_wage:"Prevailing wage",certified_payroll:"Certified payroll",bonding:"Bonding",dbe_wbe:"DBE / WBE requirements",permits:"Permits / inspections",infection_control:"Infection control",safety_program:"Safety program",commissioning:"Commissioning",public_reporting:"Public reporting",submittals:"Submittal tracking",rfi_tracking:"RFI tracking"};
+
+/** Claude reads the document and returns review candidates in the same shape as the regex extractor. */
+async function aiCandidates(text:string,fileName:string){
+  const x=await claudeStructured<AIExtraction>({
+    system:BUILDER_SYSTEM,
+    toolName:"record_document_facts",
+    toolDescription:"Record the useful facts found in a construction job document.",
+    maxTokens:3000,
+    prompt:`File name: ${fileName}\n\nDocument text:\n"""\n${text.slice(0,60000)}\n"""\n\nPull out the facts a small builder would want on the job record. Dates as YYYY-MM-DD. Only include what the document actually says.`,
+    schema:{
+      properties:{
+        document_type:{type:"string",enum:["change_order","invoice","estimate","contract","schedule","email","meeting_note","permit","inspection","rfi","selection","warranty","document"]},
+        summary:{type:"string",description:"2-3 sentence plain summary"},
+        dates:{type:"array",items:{type:"object",properties:{date:{type:"string"},what:{type:"string"}},required:["date","what"]}},
+        amounts:{type:"array",items:{type:"object",properties:{amount:{type:"number"},what:{type:"string"}},required:["amount","what"]}},
+        people:{type:"array",items:{type:"object",properties:{name:{type:["string","null"]},email:{type:["string","null"]},company:{type:["string","null"]},role:{type:["string","null"]}},required:["name","email","company","role"]}},
+        change_requests:{type:"array",description:"Requested or agreed changes to scope or price",items:{type:"object",properties:{title:{type:"string"},detail:{type:"string"},amount:{type:["number","null"]}},required:["title","detail","amount"]}},
+        requirements:{type:"array",items:{type:"string",enum:REQUIREMENT_KEYS}}
+      },
+      required:["document_type","summary","dates","amounts","people","change_requests","requirements"]
+    }
+  });
+  const title=fileName.replace(/\.[^.]+$/,"").replace(/[_-]+/g," ");
+  const out:any[]=[{candidate_type:"document_fact",candidate_key:"document_summary",proposed_value:{title,document_type:x.document_type,summary:x.summary,ai_model:CLAUDE_MODEL},confidence:.92}];
+  (x.dates||[]).slice(0,12).forEach(d=>{
+    out.push({candidate_type:"date",candidate_key:d.date,proposed_value:{date:d.date,what:d.what,source:fileName},confidence:.9});
+    out.push({candidate_type:"event",candidate_key:(d.what||title).toLowerCase().slice(0,120),proposed_value:{title:d.what||title,description:x.summary,event_type:x.document_type,date:d.date},confidence:.75});
+  });
+  (x.amounts||[]).slice(0,12).forEach(a=>out.push({candidate_type:"cost",candidate_key:String(a.amount),proposed_value:{amount:a.amount,amount_text:"$"+a.amount.toLocaleString("en-US"),what:a.what,source:fileName},confidence:.85}));
+  (x.people||[]).slice(0,12).forEach(p=>out.push({candidate_type:"person",candidate_key:(p.email||p.name||"unknown").toLowerCase(),proposed_value:{...p,source:fileName},confidence:.82}));
+  (x.change_requests||[]).slice(0,8).forEach(c=>out.push({candidate_type:"change_request",candidate_key:c.title.toLowerCase().slice(0,120),proposed_value:{...c,source:fileName},confidence:.8}));
+  (x.requirements||[]).filter(k=>REQUIREMENT_KEYS.includes(k)).forEach(k=>out.push({candidate_type:"requirement",candidate_key:k,proposed_value:{requirement_key:k,label:REQUIREMENT_LABELS[k],source:fileName},confidence:.85}));
+  return {found:out.slice(0,60),documentType:x.document_type};
+}
+
 export async function POST(req:NextRequest){
   try{
     const token=req.headers.get("authorization")?.replace(/^Bearer\s+/i,"");
@@ -82,14 +128,22 @@ export async function POST(req:NextRequest){
       return NextResponse.json({jobId:job.data.id,evidenceId:ev.data.id,status:"needs_review",candidateCount:0});
     }
 
-    const found=candidates(text,fileName);
+    let found:any[]=[];let method="pattern";let aiError:string|null=null;
+    if(aiConfigured()&&text.trim()){
+      try{
+        const ai=await aiCandidates(text,fileName);
+        found=ai.found;method="claude";
+        if(ai.documentType&&ai.documentType!=="document")await supabase.from("evidence").update({evidence_type:ai.documentType}).eq("id",ev.data.id);
+      }catch(e:any){aiError=e?.message||"AI extraction failed";}
+    }
+    if(method==="pattern")found=candidates(text,fileName);
     if(found.length){
       const rows=found.map(c=>({...c,job_id:job.data.id,project_id:projectId}));
       const ins=await supabase.from("extraction_candidates").insert(rows);
       if(ins.error) throw ins.error;
     }
-    await supabase.from("evidence").update({raw_text:text.slice(0,100000),metadata:{extraction:"automatic",candidate_count:found.length}}).eq("id",ev.data.id);
-    await supabase.from("ingestion_jobs").update({status:found.length?"needs_review":"complete",extracted_text:text.slice(0,100000),extracted_metadata:{characters:text.length,candidate_count:found.length},completed_at:new Date().toISOString()}).eq("id",job.data.id);
+    await supabase.from("evidence").update({raw_text:text.slice(0,100000),metadata:{extraction:method,candidate_count:found.length,...(aiError?{ai_error:aiError}:{})}}).eq("id",ev.data.id);
+    await supabase.from("ingestion_jobs").update({status:found.length?"needs_review":"complete",extracted_text:text.slice(0,100000),extracted_metadata:{characters:text.length,candidate_count:found.length,method,...(aiError?{ai_error:aiError}:{})},completed_at:new Date().toISOString()}).eq("id",job.data.id);
     return NextResponse.json({jobId:job.data.id,evidenceId:ev.data.id,status:found.length?"needs_review":"complete",candidateCount:found.length});
   }catch(error:any){
     return NextResponse.json({error:error?.message||"Extraction failed"},{status:500});
