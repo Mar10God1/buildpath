@@ -4,32 +4,33 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { BuildPathLogo } from "@/components/buildpath-logo";
 import { getProjectVisual } from "@/lib/project-visuals";
+import { buildWorkspace, inferComplexity, requirementOptions, type ProjectRequirement, type ModulePreference, type ModuleKey } from "@/lib/adaptive-workspace";
 
-type Project={id:string;organization_id:string;name:string;address:string|null;city:string|null;state:string|null;project_type:string|null;baseline_start:string|null;target_finish:string|null;original_budget:number|null;status:string;hero_image_url:string|null};
+type Project={id:string;organization_id:string;name:string;address:string|null;city:string|null;state:string|null;project_type:string|null;baseline_start:string|null;target_finish:string|null;original_budget:number|null;status:string;hero_image_url:string|null;project_stage:string|null;user_role:string|null;construction_mode:string|null;funding_type:string|null;complexity_override:string|null};
 type Company={id:string;name:string;company_type:string|null;organization_id:string};
 type Person={id:string;first_name:string|null;last_name:string|null;title:string|null;email:string|null;company_id:string|null};
 type Evidence={id:string;title:string|null;evidence_type:string;source_system:string|null;source_url:string|null;occurred_at:string|null;raw_text:string|null;created_at:string};
 type EventRow={id:string;event_type:string;title:string;description:string|null;start_at:string|null;end_at:string|null;date_precision:string;status:string|null;cost_impact:number|null;schedule_impact_days:number|null};
 type VendorSummary={id:string;legal_name:string|null;compliance_status:string;payment_enrollment_status:string;contact_name:string|null;contact_email:string|null};
 
-const nav=[
- {label:"Home",icon:"⌂",section:"Overview"},
- {label:"Projects",icon:"▦",section:"Project Data"},
- {label:"Schedule",icon:"▣",section:"Schedule"},
- {label:"Cost",icon:"$",section:"Costs"},
- {label:"Documents",icon:"▤",section:"Documents"},
- {label:"Reports",icon:"▧",section:"Timeline"},
- {label:"Ask BuildPath",icon:"?",section:"Ask BuildPath"},
- {label:"Company",icon:"▦",section:"People & Companies"},
- {label:"Settings",icon:"⚙",section:"Project Data"}
-];
+function moduleSection(key:ModuleKey){
+ if(key==="home")return"Overview";
+ if(key==="timeline")return"Timeline";
+ if(key==="documents")return"Documents";
+ if(key==="ask")return"Ask BuildPath";
+ if(key==="schedule")return"Schedule";
+ if(key==="cost")return"Costs";
+ if(key==="people")return"People & Companies";
+ if(key==="project_data")return"Project Data";
+ return "Adaptive:"+key;
+}
 
 function money(v:number|null|undefined){if(v==null)return"Not set";return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(v)}
 function fmtDate(v:string|null|undefined){if(!v)return"Not set";const d=new Date(v.includes("T")?v:v+"T12:00:00");return d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
 function days(a:string|null,b:string|null){if(!a||!b)return null;return Math.max(0,Math.round((new Date(b).getTime()-new Date(a).getTime())/86400000))}
 
 export function Workspace(){
- const[projects,setProjects]=useState<Project[]>([]);const[project,setProject]=useState<Project|null>(null);const[heroImage,setHeroImage]=useState("");const[companies,setCompanies]=useState<Company[]>([]);const[people,setPeople]=useState<Person[]>([]);const[evidence,setEvidence]=useState<Evidence[]>([]);const[events,setEvents]=useState<EventRow[]>([]);const[vendors,setVendors]=useState<VendorSummary[]>([]);const[section,setSection]=useState("Overview");const[loading,setLoading]=useState(true);const[error,setError]=useState("");const[switcher,setSwitcher]=useState(false);
+ const[projects,setProjects]=useState<Project[]>([]);const[project,setProject]=useState<Project|null>(null);const[heroImage,setHeroImage]=useState("");const[companies,setCompanies]=useState<Company[]>([]);const[people,setPeople]=useState<Person[]>([]);const[evidence,setEvidence]=useState<Evidence[]>([]);const[events,setEvents]=useState<EventRow[]>([]);const[vendors,setVendors]=useState<VendorSummary[]>([]);const[requirements,setRequirements]=useState<ProjectRequirement[]>([]);const[modulePrefs,setModulePrefs]=useState<ModulePreference[]>([]);const[section,setSection]=useState("Overview");const[loading,setLoading]=useState(true);const[error,setError]=useState("");const[switcher,setSwitcher]=useState(false);
 
  async function load(next:Project){
   const supabase=createClient();setProject(next);setLoading(true);setError("");
@@ -39,20 +40,25 @@ export function Workspace(){
    supabase.from("people").select("id,first_name,last_name,title,email,company_id").eq("organization_id",next.organization_id).order("last_name"),
    supabase.from("evidence").select("id,title,evidence_type,source_system,source_url,occurred_at,raw_text,created_at").eq("project_id",next.id).order("created_at",{ascending:false}),
    supabase.from("project_events").select("id,event_type,title,description,start_at,end_at,date_precision,status,cost_impact,schedule_impact_days").eq("project_id",next.id).order("start_at",{ascending:true}),
-   supabase.from("vendor_profiles").select("id,legal_name,compliance_status,payment_enrollment_status,contact_name,contact_email").eq("organization_id",next.organization_id).order("created_at",{ascending:false})
+   supabase.from("vendor_profiles").select("id,legal_name,compliance_status,payment_enrollment_status,contact_name,contact_email").eq("organization_id",next.organization_id).order("created_at",{ascending:false}),
+   supabase.from("project_requirements").select("requirement_key,label,enabled,source").eq("project_id",next.id),
+   supabase.from("project_module_preferences").select("module_key,visibility").eq("project_id",next.id)
   ]);
   const first=results.find(r=>r.error);if(first&&first.error)setError(first.error.message);
-  setCompanies((results[0].data||[]) as Company[]);setPeople((results[1].data||[]) as Person[]);setEvidence((results[2].data||[]) as Evidence[]);setEvents((results[3].data||[]) as EventRow[]);setVendors((results[4].data||[]) as VendorSummary[]);setLoading(false);
+  setCompanies((results[0].data||[]) as Company[]);setPeople((results[1].data||[]) as Person[]);setEvidence((results[2].data||[]) as Evidence[]);setEvents((results[3].data||[]) as EventRow[]);setVendors((results[4].data||[]) as VendorSummary[]);setRequirements((results[5].data||[]) as ProjectRequirement[]);setModulePrefs((results[6].data||[]) as ModulePreference[]);setLoading(false);
   const u=new URL(window.location.href);u.searchParams.set("project",next.id);window.history.replaceState({},"",u);
  }
 
- useEffect(()=>{(async()=>{const s=createClient();const auth=await s.auth.getUser();if(!auth.data.user){window.location.href="/login";return}const r=await s.from("projects").select("id,organization_id,name,address,city,state,project_type,baseline_start,target_finish,original_budget,status,hero_image_url").order("created_at",{ascending:false});if(r.error){setError(r.error.message);setLoading(false);return}const list=(r.data||[]) as Project[];setProjects(list);if(!list.length){window.location.href="/setup";return}const wanted=new URLSearchParams(window.location.search).get("project");await load(list.find(p=>p.id===wanted)||list[0])})()},[]);
+ useEffect(()=>{(async()=>{const s=createClient();const auth=await s.auth.getUser();if(!auth.data.user){window.location.href="/login";return}const r=await s.from("projects").select("id,organization_id,name,address,city,state,project_type,baseline_start,target_finish,original_budget,status,hero_image_url,project_stage,user_role,construction_mode,funding_type,complexity_override").order("created_at",{ascending:false});if(r.error){setError(r.error.message);setLoading(false);return}const list=(r.data||[]) as Project[];setProjects(list);if(!list.length){window.location.href="/setup";return}const wanted=new URLSearchParams(window.location.search).get("project");await load(list.find(p=>p.id===wanted)||list[0])})()},[]);
 
  async function logout(){await createClient().auth.signOut();window.location.href="/login"}
  if(loading&&!project)return <main className="setup-shell"><section className="setup-card"><p>Loading your BuildPath project…</p></section></main>;
  if(!project)return null;
  const location=[project.city,project.state].filter(Boolean).join(", ");
  const visual=getProjectVisual(project.project_type);
+ const workspace=buildWorkspace(project,requirements,modulePrefs,companies.length,evidence.length);
+ const visibleModules=workspace.filter(m=>m.visibility==="visible");
+ const availableModules=workspace.filter(m=>m.visibility==="available");
  return <div className="shell">
   <aside className="sidebar">
    <BuildPathLogo/>
@@ -61,11 +67,10 @@ export function Workspace(){
     {switcher&&<div className="switcher-menu">{projects.map(p=><button key={p.id} className={p.id===project.id?"selected":""} onClick={()=>{setSwitcher(false);load(p)}}>{p.name}<small>{[p.city,p.state].filter(Boolean).join(", ")}</small></button>)}<a href="/setup">＋ Add project</a></div>}
    </div>
    <nav>
- {nav.slice(0,5).map(n=><button key={n.label} className={n.section===section?"nav-active":""} onClick={()=>setSection(n.section)}><span className="nav-icon">{n.icon}</span>{n.label}</button>)}
- <a className="side-link" href={"/vendors?project="+project.id}><span className="nav-icon">♟</span>Vendors & Subs</a>
- {nav.slice(5,7).map(n=><button key={n.label} className={n.section===section?"nav-active":""} onClick={()=>setSection(n.section)}><span className="nav-icon">{n.icon}</span>{n.label}{n.label==="Ask BuildPath"&&<small className="beta-badge">BETA</small>}</button>)}
- <div className="nav-divider"/>
- {nav.slice(7).map(n=><button key={n.label} className={n.section===section?"nav-active":""} onClick={()=>setSection(n.section)}><span className="nav-icon">{n.icon}</span>{n.label}</button>)}
+ {visibleModules.map(m=>m.key==="vendors"
+  ?<a key={m.key} className="side-link" href={"/vendors?project="+project.id}><span className="nav-icon">{m.icon}</span>{m.label}</a>
+  :<button key={m.key} className={moduleSection(m.key)===section?"nav-active":""} onClick={()=>setSection(moduleSection(m.key))}><span className="nav-icon">{m.icon}</span>{m.label}{m.key==="ask"&&<small className="beta-badge">BETA</small>}</button>)}
+ {availableModules.length>0&&<><div className="nav-divider"/><button className="muted-nav" onClick={()=>setSection("Project Data")}><span className="nav-icon">＋</span>Add to Project <small>{availableModules.length}</small></button></>}
 </nav>
    <div className="sidebar-bottom"><span className="sidebar-icon">▦</span><span><strong>Project memory</strong><small>{evidence.length} evidence · {events.length} events</small></span><button className="logout-mini" onClick={logout}>Log out</button></div>
   </aside>
@@ -73,14 +78,15 @@ export function Workspace(){
    <div className="global-topbar"><div className="global-search">⌕ <span>Search projects, documents, subs, or ask anything...</span></div><div className="global-user"><span className="notify-dot">●</span><span className="user-avatar">MG</span><span><strong>BuildPath</strong><small>Project workspace</small></span></div></div>
    <header className="topbar" style={{backgroundImage:"linear-gradient(90deg,rgba(10,11,12,.88),rgba(10,11,12,.54) 55%,rgba(10,11,12,.35)),url("+JSON.stringify(heroImage||visual.image)+")"}}><div><p className="eyebrow">{visual.eyebrow}</p><h1>{visual.headline}</h1><p>{visual.subhead}</p></div></header><section className="project-ribbon"><div><small>Project</small><strong>{project.name}</strong></div><div className="project-ribbon-meta"><span>{location||"Location not set"}</span><span>{project.project_type||"Project"}</span><span>{money(project.original_budget)}</span></div><button onClick={()=>setSection("Project Data")}>View Project →</button></section>
    {error&&<div className="form-message">{error}</div>}
-   {section==="Overview"&&<Overview project={project} companies={companies} people={people} evidence={evidence} events={events} vendors={vendors} go={setSection}/>}
+   {section==="Overview"&&<Overview project={project} companies={companies} people={people} evidence={evidence} events={events} vendors={vendors} modules={workspace} go={setSection}/>}
    {section==="Timeline"&&<Timeline project={project} events={events} refresh={()=>load(project)}/>}
    {section==="Ask BuildPath"&&<Ask project={project} companies={companies} evidence={evidence} events={events}/>}
    {section==="People & Companies"&&<PeopleCompanies project={project} companies={companies} people={people} refresh={()=>load(project)}/>}
    {section==="Documents"&&<Documents project={project} evidence={evidence} refresh={()=>load(project)}/>}
    {section==="Costs"&&<Costs project={project} events={events}/>}
    {section==="Schedule"&&<Schedule project={project} events={events}/>}
-   {section==="Project Data"&&<ProjectData project={project} companies={companies} refresh={()=>load(project)}/>}
+   {section==="Project Data"&&<ProjectData project={project} companies={companies} requirements={requirements} modulePrefs={modulePrefs} workspace={workspace} refresh={()=>load(project)}/>
+   {section.startsWith("Adaptive:")&&<AdaptiveModule moduleKey={section.replace("Adaptive:","") as ModuleKey} project={project} events={events} evidence={evidence}/>}}
   </main>
  </div>
 }
