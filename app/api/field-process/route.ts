@@ -181,8 +181,7 @@ ${context}`;
     if(imageBytes)parts.push({type:"image",image:imageBytes,mimeType:args.mediaType||undefined});
     const result=await generateText({
       model:"openai/gpt-5-nano",
-      messages:[{role:"user",content:parts}],
-      providerOptions:{gateway:{user:args.userId,tags:["feature:field-intelligence","env:production"]}}
+      messages:[{role:"user",content:parts}]
     });
     return{intel:parseJsonObject(result.text),used:true,model:"openai/gpt-5-nano"};
   }catch{
