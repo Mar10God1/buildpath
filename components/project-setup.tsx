@@ -116,7 +116,6 @@ export function ProjectSetup() {
       baseline_start: form.startDate || null,
       target_finish: form.targetFinish || null,
       original_budget: dollarsToNumber(form.budget),
-      user_role: form.userRole,
       project_stage: form.projectStage,
       construction_mode: form.constructionMode,
       funding_type: form.fundingType,
