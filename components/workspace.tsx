@@ -13,17 +13,17 @@ type Evidence={id:string;title:string|null;evidence_type:string;source_system:st
 type EventRow={id:string;event_type:string;title:string;description:string|null;start_at:string|null;end_at:string|null;date_precision:string;status:string|null;cost_impact:number|null;schedule_impact_days:number|null};
 type VendorSummary={id:string;legal_name:string|null;compliance_status:string;payment_enrollment_status:string;contact_name:string|null;contact_email:string|null};
 
-const nav=[
- {label:"Home",icon:"⌂",section:"Overview"},
- {label:"Projects",icon:"▦",section:"Project Data"},
- {label:"Schedule",icon:"▣",section:"Schedule"},
- {label:"Cost",icon:"$",section:"Costs"},
- {label:"Documents",icon:"▤",section:"Documents"},
- {label:"Reports",icon:"▧",section:"Timeline"},
- {label:"Ask BuildPath",icon:"?",section:"Ask BuildPath"},
- {label:"Company",icon:"▦",section:"People & Companies"},
- {label:"Settings",icon:"⚙",section:"Project Data"}
-];
+function moduleSection(key:ModuleKey){
+ if(key==="home")return"Overview";
+ if(key==="timeline")return"Timeline";
+ if(key==="documents")return"Documents";
+ if(key==="ask")return"Ask BuildPath";
+ if(key==="schedule")return"Schedule";
+ if(key==="cost")return"Costs";
+ if(key==="people")return"People & Companies";
+ if(key==="project_data")return"Project Data";
+ return "Adaptive:"+key;
+}
 
 function money(v:number|null|undefined){if(v==null)return"Not set";return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(v)}
 function fmtDate(v:string|null|undefined){if(!v)return"Not set";const d=new Date(v.includes("T")?v:v+"T12:00:00");return d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
@@ -65,11 +65,14 @@ export function Workspace(){
     {switcher&&<div className="switcher-menu">{projects.map(p=><button key={p.id} className={p.id===project.id?"selected":""} onClick={()=>{setSwitcher(false);load(p)}}>{p.name}<small>{[p.city,p.state].filter(Boolean).join(", ")}</small></button>)}<a href="/setup">＋ Add project</a></div>}
    </div>
    <nav>
- {nav.slice(0,5).map(n=><button key={n.label} className={n.section===section?"nav-active":""} onClick={()=>setSection(n.section)}><span className="nav-icon">{n.icon}</span>{n.label}</button>)}
- <a className="side-link" href={"/vendors?project="+project.id}><span className="nav-icon">♟</span>Vendors & Subs</a>
- {nav.slice(5,7).map(n=><button key={n.label} className={n.section===section?"nav-active":""} onClick={()=>setSection(n.section)}><span className="nav-icon">{n.icon}</span>{n.label}{n.label==="Ask BuildPath"&&<small className="beta-badge">BETA</small>}</button>)}
- <div className="nav-divider"/>
- {nav.slice(7).map(n=><button key={n.label} className={n.section===section?"nav-active":""} onClick={()=>setSection(n.section)}><span className="nav-icon">{n.icon}</span>{n.label}</button>)}
+ {adaptiveModules.filter(m=>m.visibility==="visible").map(m=>
+  m.key==="vendors"
+   ?<a key={m.key} className="side-link" href={"/vendors?project="+project.id}><span className="nav-icon">{m.icon}</span>{m.label}</a>
+   :m.key==="field_capture"
+    ?<a key={m.key} className="side-link field-nav" href={"/field?project="+project.id}><span className="nav-icon">{m.icon}</span>{m.label}</a>
+    :<button key={m.key} className={moduleSection(m.key)===section?"nav-active":""} onClick={()=>setSection(moduleSection(m.key))}><span className="nav-icon">{m.icon}</span>{m.label}{m.key==="ask"&&<small className="beta-badge">BETA</small>}</button>
+ )}
+ {adaptiveModules.some(m=>m.visibility==="available")&&<><div className="nav-divider"/><button className="muted-nav" onClick={()=>setSection("Project Data")}><span className="nav-icon">＋</span>Add to Project <small>{adaptiveModules.filter(m=>m.visibility==="available").length}</small></button></>}
 </nav>
    <div className="sidebar-bottom"><span className="sidebar-icon">▦</span><span><strong>Project memory</strong><small>{evidence.length} evidence · {events.length} events</small></span><button className="logout-mini" onClick={logout}>Log out</button></div>
   </aside>
@@ -204,5 +207,12 @@ function ProjectData({project,companies,refresh}:{project:Project;companies:Comp
   if(r.error){setMsg(r.error.message);return}setMsg("Using the automatic "+(project.project_type||"construction")+" header image.");refresh();
  }
  return <><section className="panel page-panel"><div className="panel-title"><div><p className="eyebrow">PROJECT APPEARANCE</p><h3>Header image</h3></div></div><p className="panel-copy">BuildPath automatically chooses imagery and messaging based on the project type. Upload a project-specific image here to override the automatic image.</p><div className="hero-control"><label className="secondary-action"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadHero} disabled={busy}/>{busy?"Uploading…":"Upload custom header"}</label>{project.hero_image_url&&<button className="text-button" onClick={clearHero}>Use automatic image instead</button>}</div>{msg&&<div className="form-message">{msg}</div>}</section><section className="panel page-panel"><p className="eyebrow">CANONICAL PROJECT RECORD</p><h3>Project data</h3><div className="data-table"><div><span>Name</span><strong>{project.name}</strong></div><div><span>Address</span><strong>{project.address||"Not set"}</strong></div><div><span>City / State</span><strong>{[project.city,project.state].filter(Boolean).join(", ")||"Not set"}</strong></div><div><span>Project type</span><strong>{project.project_type||"Not set"}</strong></div><div><span>Baseline start</span><strong>{fmtDate(project.baseline_start)}</strong></div><div><span>Target finish</span><strong>{fmtDate(project.target_finish)}</strong></div><div><span>Original budget</span><strong>{money(project.original_budget)}</strong></div><div><span>Status</span><strong>{project.status}</strong></div><div><span>Connected companies</span><strong>{companies.map(c=>c.name).join(", ")||"None"}</strong></div></div></section></>
+}
+function AdaptivePlaceholder({moduleKey,project,events,evidence}:{moduleKey:ModuleKey;project:Project;events:EventRow[];evidence:Evidence[]}){
+ const item=buildWorkspace(project,[],[],0,evidence.length).find(m=>m.key===moduleKey);
+ const label=item?.label||moduleKey.replaceAll("_"," ");
+ const needle=moduleKey.replace("_orders","").replace("_reports","").replace("rfis","rfi");
+ const matches=events.filter(e=>e.event_type.toLowerCase().includes(needle)||e.title.toLowerCase().includes(label.toLowerCase().replace(/s$/,""))).slice(0,20);
+ return <section className="panel page-panel"><div className="panel-title"><div><p className="eyebrow">PROJECT WORKFLOW</p><h3>{label}</h3></div><span className="status-chip">{project.project_stage||"project"}</span></div><p className="panel-copy">BuildPath surfaced this section because it is relevant to this project or role. Matching project evidence will collect here as the project record grows.</p>{matches.length?<div className="event-list">{matches.map(e=><article key={e.id}><time>{fmtDate(e.start_at)}</time><div><span className="type">{e.event_type}</span><h4>{e.title}</h4><p>{e.description||"No description"}</p></div></article>)}</div>:<Empty text={"No "+label.toLowerCase()+" records have been connected yet."}/>}</section>
 }
 function Empty({text}:{text:string}){return <div className="empty-state"><span>＋</span><p>{text}</p></div>}
