@@ -3,21 +3,22 @@
 import { FormEvent, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { AppSidebar } from "@/components/app-sidebar";
+import { getProjectVisual } from "@/lib/project-visuals";
 
-type Project={id:string;organization_id:string;name:string};
+type Project={id:string;organization_id:string;name:string;project_type:string|null;hero_image_url:string|null};
 type Vendor={id:string;legal_name:string|null;dba_name:string|null;vendor_type:string;ein:string|null;tax_classification:string|null;contact_name:string|null;contact_email:string|null;contact_phone:string|null;payment_enrollment_status:string;compliance_status:string;notes:string|null};
 type Template={id:string;name:string;description:string|null;is_default:boolean};
 type Requirement={id:string;template_id:string;label:string;field_key:string;requirement_type:string;help_text:string|null;is_required:boolean;sort_order:number;document_type:string|null;expires:boolean};
 type Invite={id:string;vendor_id:string;invited_email:string;status:string;due_date:string|null;created_at:string;template_id:string};
 
 export default function VendorsPage(){
- const[project,setProject]=useState<Project|null>(null);const[vendors,setVendors]=useState<Vendor[]>([]);const[templates,setTemplates]=useState<Template[]>([]);const[reqs,setReqs]=useState<Requirement[]>([]);const[invites,setInvites]=useState<Invite[]>([]);const[editing,setEditing]=useState<string|null>(null);const[mode,setMode]=useState<"vendor"|"requirement"|null>(null);const[msg,setMsg]=useState("");const[inviteLink,setInviteLink]=useState("");
+ const[project,setProject]=useState<Project|null>(null);const[heroImage,setHeroImage]=useState("");const[vendors,setVendors]=useState<Vendor[]>([]);const[templates,setTemplates]=useState<Template[]>([]);const[reqs,setReqs]=useState<Requirement[]>([]);const[invites,setInvites]=useState<Invite[]>([]);const[editing,setEditing]=useState<string|null>(null);const[mode,setMode]=useState<"vendor"|"requirement"|null>(null);const[msg,setMsg]=useState("");const[inviteLink,setInviteLink]=useState("");
 
  async function load(){
   const s=createClient();const auth=await s.auth.getUser();if(!auth.data.user){window.location.href="/login?next="+encodeURIComponent(window.location.pathname+window.location.search);return}
   const wanted=new URLSearchParams(window.location.search).get("project");
-  const pr=await s.from("projects").select("id,organization_id,name").order("created_at",{ascending:false});
-  const list=(pr.data||[]) as Project[];const p=list.find(x=>x.id===wanted)||list[0];if(!p){window.location.href="/setup";return}setProject(p);
+  const pr=await s.from("projects").select("id,organization_id,name,project_type,hero_image_url").order("created_at",{ascending:false});
+  const list=(pr.data||[]) as Project[];const p=list.find(x=>x.id===wanted)||list[0];if(!p){window.location.href="/setup";return}setProject(p);if(p.hero_image_url){const signed=await s.storage.from("project-assets").createSignedUrl(p.hero_image_url,3600);setHeroImage(signed.data?.signedUrl||getProjectVisual(p.project_type).image)}else setHeroImage(getProjectVisual(p.project_type).image);
   const [v,t,i]=await Promise.all([
     s.from("vendor_profiles").select("*").eq("organization_id",p.organization_id).order("created_at",{ascending:false}),
     s.from("vendor_requirement_templates").select("*").eq("organization_id",p.organization_id).order("is_default",{ascending:false}),
@@ -61,6 +62,7 @@ export default function VendorsPage(){
  }
 
  if(!project)return <main className="setup-shell"><section className="setup-card">Loading vendors…</section></main>;
+ const visual=getProjectVisual(project.project_type);
  const compliant=vendors.filter(v=>v.compliance_status==="approved").length;
  const pending=vendors.filter(v=>["invited","in_progress","submitted"].includes(v.compliance_status)).length;
  const attention=vendors.filter(v=>["needs_attention","expired"].includes(v.compliance_status)).length;
@@ -69,7 +71,7 @@ export default function VendorsPage(){
  const compliancePct=vendors.length?Math.round((compliant/vendors.length)*100):0;
  return <div className="shell"><AppSidebar projectId={project.id} active="Vendors & Subs"/><main className="main standalone-page">
   <div className="global-topbar"><div className="global-search">⌕ <span>Search vendors, contacts, trades, certifications, or projects...</span></div><div className="global-user"><span className="notify-dot">●</span><span className="user-avatar">MG</span><span><strong>BuildPath</strong><small>Project workspace</small></span></div></div>
-  <header className="topbar"><div><h1>Vendors & Subs</h1><p>Manage your subcontractors and suppliers in one place.</p></div></header>
+  <header className="topbar" style={{backgroundImage:"linear-gradient(90deg,rgba(10,11,12,.88),rgba(10,11,12,.54) 55%,rgba(10,11,12,.35)),url("+JSON.stringify(heroImage||visual.image)+")"}}><div><p className="eyebrow">{visual.eyebrow}</p><h1>Vendors & Subs</h1><p>Manage subcontractors and suppliers for {project.name} in one place.</p></div></header>
   <div className="vendor-toolbar"><div className="segmented"><button className="active">All Vendors ({vendors.length})</button><button>Subcontractors ({vendors.filter(v=>v.vendor_type==="subcontractor").length})</button><button>Suppliers ({vendors.filter(v=>v.vendor_type==="vendor").length})</button><button>Onboarding ({pending})</button></div><button className="secondary-action">⇩ Export</button><button className="primary-action" onClick={()=>setMode(mode==="vendor"?null:"vendor")}>＋ Add Vendor</button></div>
   {msg&&<div className="form-message">{msg}</div>}
   {inviteLink&&<div className="invite-link"><strong>Vendor onboarding link</strong><input readOnly value={inviteLink}/><button className="primary-action" onClick={()=>navigator.clipboard.writeText(inviteLink)}>Copy link</button></div>}
