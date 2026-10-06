@@ -163,10 +163,10 @@ export function buildWorkspace(p:AdaptiveProject,reqs:ProjectRequirement[]=[],pr
 }
 
 export function recommendedRequirements(p:AdaptiveProject){
- const type=norm(p.project_type),funding=norm(p.funding_type),role=norm(p.user_role);
+ const type=norm(p.project_type),funding=norm(p.funding_type);
  const base=[{key:"legal_name",label:"Legal business name"},{key:"ein",label:"EIN / Tax ID"},{key:"tax_classification",label:"Tax classification"},{key:"contact_name",label:"Primary contact"},{key:"contact_email",label:"Contact email"},{key:"contact_phone",label:"Contact phone"},{key:"w9",label:"W-9 / tax information"},{key:"payment_enrollment",label:"Payment enrollment"}];
  const out=[...base];
- if(!type.includes("residential")||role.includes("general_contractor")||role.includes("project_manager"))out.push({key:"insurance",label:"Certificate of Insurance"});
+ if(!type.includes("residential")||type.includes("multifamily"))out.push({key:"insurance",label:"Certificate of Insurance"});
  if(type.includes("commercial")||type.includes("industrial")||type.includes("health")||type.includes("civic")||type.includes("infrastructure")){
   out.push({key:"workers_comp",label:"Workers' compensation"},{key:"license",label:"Trade / contractor license"});
  }
