@@ -22,6 +22,21 @@ function candidates(text:string,fileName:string){
   const dollars=unique(text.match(/\$\s?\d[\d,]*(?:\.\d{2})?/g)||[]).slice(0,12);
   const emails=unique(text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)||[]).slice(0,12);
   const out:any[]=[];
+  const lower=text.toLowerCase();
+  const requirementSignals=[
+    ["insurance","Insurance / COI",/certificate of insurance|general liability|workers.? compensation/],
+    ["prevailing_wage","Prevailing wage",/prevailing wage/],
+    ["certified_payroll","Certified payroll",/certified payroll/],
+    ["bonding","Bonding",/performance bond|payment bond|surety bond/],
+    ["dbe_wbe","DBE / WBE requirements",/\bdbe\b|\bwbe\b|disadvantaged business|women-owned business/],
+    ["infection_control","Infection control",/infection control|icra\b/],
+    ["safety_program","Safety program",/site safety plan|safety program|osha/],
+    ["commissioning","Commissioning",/commissioning requirements?|functional performance test/],
+    ["public_reporting","Public reporting",/public reporting|government reporting/],
+    ["submittals","Submittal tracking",/submittal register|submittal log/],
+    ["rfi_tracking","RFI tracking",/rfi log|request for information/]
+  ] as const;
+  requirementSignals.forEach(([key,label,re])=>{if(re.test(lower))out.push({candidate_type:"requirement",candidate_key:key,proposed_value:{requirement_key:key,label,source:fileName},confidence:.82})});
   [...dates,...isoDates].forEach(v=>out.push({candidate_type:"date",candidate_key:v,proposed_value:{date:v,source:fileName},confidence:.88}));
   dollars.forEach(v=>out.push({candidate_type:"cost",candidate_key:v,proposed_value:{amount_text:v,source:fileName},confidence:.8}));
   emails.forEach(v=>out.push({candidate_type:"person",candidate_key:v.toLowerCase(),proposed_value:{email:v,source:fileName},confidence:.78}));
