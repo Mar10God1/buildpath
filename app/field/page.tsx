@@ -31,6 +31,7 @@ export default function FieldCapturePage(){
  const[busy,setBusy]=useState(false);
  const[recording,setRecording]=useState(false);
  const recorder=useRef<MediaRecorder|null>(null);
+ const speech=useRef<any>(null);
  const chunks=useRef<Blob[]>([]);
 
  async function load(){
@@ -56,9 +57,23 @@ export default function FieldCapturePage(){
     stream.getTracks().forEach(t=>t.stop());
    };
    recorder.current=mr;mr.start();setRecording(true);setType("voice_note");setMsg("");
+   const SpeechRecognition=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;
+   if(SpeechRecognition){
+    const recognition=new SpeechRecognition();
+    recognition.continuous=true;recognition.interimResults=true;recognition.lang="en-US";
+    recognition.onresult=(event:any)=>{
+     let finalText="";
+     for(let i=event.resultIndex;i<event.results.length;i++){
+      if(event.results[i].isFinal)finalText+=event.results[i][0].transcript+" ";
+     }
+     if(finalText.trim())setNotes(prev=>(prev?prev+" ":"")+finalText.trim());
+    };
+    recognition.onerror=()=>{};
+    recognition.start();speech.current=recognition;
+   }
   }catch{setMsg("Microphone access was not available. You can still attach an audio file or type the note.");}
  }
- function stopRecording(){recorder.current?.stop();setRecording(false)}
+ function stopRecording(){recorder.current?.stop();try{speech.current?.stop()}catch{}speech.current=null;setRecording(false)}
 
  async function submit(){
   if(!project)return;
@@ -81,7 +96,7 @@ export default function FieldCapturePage(){
   if(ev.error){setMsg(ev.error.message);setBusy(false);return}
   const needsProcessing=!!file&&(file.type.startsWith("audio/")||["receipt","invoice"].includes(type));
   const r=await s.from("field_submissions").insert({
-   project_id:project.id,submitted_by:user.id,submission_type:type,title:title.trim()||null,notes:notes.trim()||null,
+   project_id:project.id,submitted_by:user.id,submission_type:type,title:title.trim()||null,notes:notes.trim()||null,transcript:type==="voice_note"?(notes.trim()||null):null,
    media_type:file?.type||null,storage_path:storagePath,amount:amount?Number(amount.replace(/[^0-9.-]/g,"")):null,
    vendor_name:vendor.trim()||null,processing_status:needsProcessing?"queued":"complete",evidence_id:ev.data.id,
    metadata:{file_name:file?.name||null}
