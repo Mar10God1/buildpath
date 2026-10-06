@@ -11,14 +11,14 @@ export type AdaptiveProject = {
 export type ProjectRequirement = { requirement_key:string; label:string; enabled:boolean; source:string };
 export type ModulePreference = { module_key:string; visibility:"visible"|"available"|"hidden" };
 export type ModuleKey =
-  | "home"|"timeline"|"documents"|"ask"|"schedule"|"cost"|"vendors"|"selections"
+  | "home"|"timeline"|"documents"|"ask"|"field_capture"|"schedule"|"cost"|"vendors"|"selections"
   | "inspections"|"rfis"|"submittals"|"change_orders"|"daily_reports"|"compliance"
   | "procurement"|"safety"|"commissioning"|"people"|"project_data";
 
 export type ModuleDecision={key:ModuleKey;label:string;icon:string;visibility:"visible"|"available"|"hidden";reason:string;priority:number};
 
 const meta:Record<ModuleKey,{label:string;icon:string}>={
- home:{label:"Home",icon:"⌂"},timeline:{label:"Timeline",icon:"◷"},documents:{label:"Documents",icon:"▤"},ask:{label:"Ask BuildPath",icon:"?"},
+ home:{label:"Home",icon:"⌂"},timeline:{label:"Timeline",icon:"◷"},documents:{label:"Documents",icon:"▤"},ask:{label:"Ask BuildPath",icon:"?"},field_capture:{label:"Field Capture",icon:"＋"},
  schedule:{label:"Schedule",icon:"▣"},cost:{label:"Cost",icon:"$"},vendors:{label:"Vendors & Subs",icon:"♟"},selections:{label:"Selections",icon:"◇"},
  inspections:{label:"Inspections",icon:"✓"},rfis:{label:"RFIs",icon:"?"},submittals:{label:"Submittals",icon:"▧"},change_orders:{label:"Change Orders",icon:"△"},
  daily_reports:{label:"Daily Reports",icon:"☷"},compliance:{label:"Compliance",icon:"⚑"},procurement:{label:"Procurement",icon:"⇄"},
@@ -51,6 +51,7 @@ export function buildWorkspace(p:AdaptiveProject,reqs:ProjectRequirement[]=[],pr
  push(m,"timeline","visible",95,"Connected project history");
  push(m,"documents","visible",94,"Evidence is the source of project truth");
  push(m,"ask","visible",93,"Project intelligence");
+ push(m,"field_capture","available",70,"Fast mobile field evidence capture");
  push(m,"project_data","visible",20,"Project configuration");
  push(m,"people","available",25,"Project relationships");
 
@@ -71,6 +72,7 @@ export function buildWorkspace(p:AdaptiveProject,reqs:ProjectRequirement[]=[],pr
   push(m,"daily_reports","available",58,"Field reporting support");
  }
  if(role.includes("superintendent")||role.includes("field")){
+  push(m,"field_capture","visible",99,"Primary mobile field workflow");
   ["schedule","daily_reports","inspections","rfis","safety","procurement"].forEach((k,i)=>push(m,k as ModuleKey,"visible",94-i,"Field execution priority"));
   push(m,"cost","available",35,"Cost is secondary for field users");
  }
@@ -87,6 +89,7 @@ export function buildWorkspace(p:AdaptiveProject,reqs:ProjectRequirement[]=[],pr
   push(m,"change_orders","available",55,"Design changes can affect cost");
  }
  if(role.includes("subcontractor")||role.includes("vendor")){
+  push(m,"field_capture","visible",96,"Simple evidence capture for field contributors");
   push(m,"schedule","visible",92,"Trade commitments and milestones");
   push(m,"documents","visible",96,"Scope and required documentation");
   push(m,"compliance","visible",88,"Onboarding and compliance");
