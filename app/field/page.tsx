@@ -106,15 +106,24 @@ export default function FieldCapturePage(){
    metadata:{capture_type:type,original_file:file?.name||null,vendor_name:vendor.trim()||null,amount:amount?Number(amount.replace(/[^0-9.-]/g,"")):null,location},created_by:user.id
   }).select("id").single();
   if(ev.error){setMsg(ev.error.message);setBusy(false);return}
-  const needsProcessing=!!file&&(file.type.startsWith("audio/")||["receipt","invoice"].includes(type));
   const r=await s.from("field_submissions").insert({
    project_id:project.id,submitted_by:user.id,submission_type:type,title:title.trim()||null,notes:notes.trim()||null,transcript:type==="voice_note"?(notes.trim()||null):null,
    media_type:file?.type||null,storage_path:storagePath,amount:amount?Number(amount.replace(/[^0-9.-]/g,"")):null,
-   vendor_name:vendor.trim()||null,processing_status:needsProcessing?"queued":"complete",evidence_id:ev.data.id,
+   vendor_name:vendor.trim()||null,processing_status:"queued",evidence_id:ev.data.id,
    metadata:{file_name:file?.name||null,location}
-  });
+  }).select("id").single();
   if(r.error){setMsg(r.error.message);setBusy(false);return}
-  setTitle("");setNotes("");setAmount("");setVendor("");setFile(null);setMsg(needsProcessing?"Captured. Media is queued for extraction/transcription review.":"Captured and added to the project record.");setBusy(false);await load();
+
+  const session=await s.auth.getSession();
+  const token=session.data.session?.access_token;
+  let processingMessage="Captured and added to the project record.";
+  if(token){
+   const processed=await fetch("/api/field-process",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({submissionId:r.data.id})});
+   const body=await processed.json() as {candidateCount?:number;status?:string;error?:string};
+   if(processed.ok){processingMessage=(body.candidateCount||0)>0?"Captured. BuildPath found "+String(body.candidateCount)+" proposed facts for review.":"Captured. No additional structured facts were detected."}
+   else processingMessage="Captured successfully. Automatic processing is queued for later review.";
+  }
+  setTitle("");setNotes("");setAmount("");setVendor("");setFile(null);setMsg(processingMessage);setBusy(false);await load();
  }
 
  if(!project)return <main className="field-shell"><div className="field-loading">Loading field capture…</div></main>;
