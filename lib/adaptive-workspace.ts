@@ -97,6 +97,8 @@ export function buildWorkspace(p:AdaptiveProject,reqs:ProjectRequirement[]=[],pr
  }
 
  if(type.includes("residential")||type.includes("multifamily")){
+  push(m,"schedule","visible",90,"Core residential milestone tracking");
+  if((p.original_budget||0)>0)push(m,"cost","visible",88,"Budget and change visibility");
   push(m,"selections","visible",84,"Residential projects often depend on owner selections");
   push(m,"inspections","visible",80,"Inspection milestones");
   push(m,"vendors","visible",76,"Trade coordination");
