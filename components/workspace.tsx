@@ -3,8 +3,9 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { BuildPathLogo } from "@/components/buildpath-logo";
+import { getProjectVisual } from "@/lib/project-visuals";
 
-type Project={id:string;organization_id:string;name:string;address:string|null;city:string|null;state:string|null;project_type:string|null;baseline_start:string|null;target_finish:string|null;original_budget:number|null;status:string};
+type Project={id:string;organization_id:string;name:string;address:string|null;city:string|null;state:string|null;project_type:string|null;baseline_start:string|null;target_finish:string|null;original_budget:number|null;status:string;hero_image_url:string|null};
 type Company={id:string;name:string;company_type:string|null;organization_id:string};
 type Person={id:string;first_name:string|null;last_name:string|null;title:string|null;email:string|null;company_id:string|null};
 type Evidence={id:string;title:string|null;evidence_type:string;source_system:string|null;source_url:string|null;occurred_at:string|null;raw_text:string|null;created_at:string};
@@ -28,10 +29,11 @@ function fmtDate(v:string|null|undefined){if(!v)return"Not set";const d=new Date
 function days(a:string|null,b:string|null){if(!a||!b)return null;return Math.max(0,Math.round((new Date(b).getTime()-new Date(a).getTime())/86400000))}
 
 export function Workspace(){
- const[projects,setProjects]=useState<Project[]>([]);const[project,setProject]=useState<Project|null>(null);const[companies,setCompanies]=useState<Company[]>([]);const[people,setPeople]=useState<Person[]>([]);const[evidence,setEvidence]=useState<Evidence[]>([]);const[events,setEvents]=useState<EventRow[]>([]);const[vendors,setVendors]=useState<VendorSummary[]>([]);const[section,setSection]=useState("Overview");const[loading,setLoading]=useState(true);const[error,setError]=useState("");const[switcher,setSwitcher]=useState(false);
+ const[projects,setProjects]=useState<Project[]>([]);const[project,setProject]=useState<Project|null>(null);const[heroImage,setHeroImage]=useState("");const[companies,setCompanies]=useState<Company[]>([]);const[people,setPeople]=useState<Person[]>([]);const[evidence,setEvidence]=useState<Evidence[]>([]);const[events,setEvents]=useState<EventRow[]>([]);const[vendors,setVendors]=useState<VendorSummary[]>([]);const[section,setSection]=useState("Overview");const[loading,setLoading]=useState(true);const[error,setError]=useState("");const[switcher,setSwitcher]=useState(false);
 
  async function load(next:Project){
   const supabase=createClient();setProject(next);setLoading(true);setError("");
+  if(next.hero_image_url){const signed=await supabase.storage.from("project-assets").createSignedUrl(next.hero_image_url,3600);setHeroImage(signed.data?.signedUrl||getProjectVisual(next.project_type).image)}else{setHeroImage(getProjectVisual(next.project_type).image)}
   const results=await Promise.all([
    supabase.from("companies").select("id,name,company_type,organization_id").eq("organization_id",next.organization_id).order("name"),
    supabase.from("people").select("id,first_name,last_name,title,email,company_id").eq("organization_id",next.organization_id).order("last_name"),
@@ -44,12 +46,13 @@ export function Workspace(){
   const u=new URL(window.location.href);u.searchParams.set("project",next.id);window.history.replaceState({},"",u);
  }
 
- useEffect(()=>{(async()=>{const s=createClient();const auth=await s.auth.getUser();if(!auth.data.user){window.location.href="/login";return}const r=await s.from("projects").select("id,organization_id,name,address,city,state,project_type,baseline_start,target_finish,original_budget,status").order("created_at",{ascending:false});if(r.error){setError(r.error.message);setLoading(false);return}const list=(r.data||[]) as Project[];setProjects(list);if(!list.length){window.location.href="/setup";return}const wanted=new URLSearchParams(window.location.search).get("project");await load(list.find(p=>p.id===wanted)||list[0])})()},[]);
+ useEffect(()=>{(async()=>{const s=createClient();const auth=await s.auth.getUser();if(!auth.data.user){window.location.href="/login";return}const r=await s.from("projects").select("id,organization_id,name,address,city,state,project_type,baseline_start,target_finish,original_budget,status,hero_image_url").order("created_at",{ascending:false});if(r.error){setError(r.error.message);setLoading(false);return}const list=(r.data||[]) as Project[];setProjects(list);if(!list.length){window.location.href="/setup";return}const wanted=new URLSearchParams(window.location.search).get("project");await load(list.find(p=>p.id===wanted)||list[0])})()},[]);
 
  async function logout(){await createClient().auth.signOut();window.location.href="/login"}
  if(loading&&!project)return <main className="setup-shell"><section className="setup-card"><p>Loading your BuildPath project…</p></section></main>;
  if(!project)return null;
  const location=[project.city,project.state].filter(Boolean).join(", ");
+ const visual=getProjectVisual(project.project_type);
  return <div className="shell">
   <aside className="sidebar">
    <BuildPathLogo/>
@@ -68,7 +71,7 @@ export function Workspace(){
   </aside>
   <main className="main">
    <div className="global-topbar"><div className="global-search">⌕ <span>Search projects, documents, subs, or ask anything...</span></div><div className="global-user"><span className="notify-dot">●</span><span className="user-avatar">MG</span><span><strong>BuildPath</strong><small>Project workspace</small></span></div></div>
-   <header className="topbar"><div><p className="eyebrow">WELCOME BACK</p><h1>Good morning, Martin.</h1><p>Here’s what’s happening across your project today.</p></div></header><section className="project-ribbon"><div><small>Project</small><strong>{project.name}</strong></div><div className="project-ribbon-meta"><span>{location||"Location not set"}</span><span>{project.project_type||"Project"}</span><span>{money(project.original_budget)}</span></div><button onClick={()=>setSection("Project Data")}>View Project →</button></section>
+   <header className="topbar" style={{backgroundImage:"linear-gradient(90deg,rgba(10,11,12,.88),rgba(10,11,12,.54) 55%,rgba(10,11,12,.35)),url("+JSON.stringify(heroImage||visual.image)+")"}}><div><p className="eyebrow">{visual.eyebrow}</p><h1>{visual.headline}</h1><p>{visual.subhead}</p></div></header><section className="project-ribbon"><div><small>Project</small><strong>{project.name}</strong></div><div className="project-ribbon-meta"><span>{location||"Location not set"}</span><span>{project.project_type||"Project"}</span><span>{money(project.original_budget)}</span></div><button onClick={()=>setSection("Project Data")}>View Project →</button></section>
    {error&&<div className="form-message">{error}</div>}
    {section==="Overview"&&<Overview project={project} companies={companies} people={people} evidence={evidence} events={events} vendors={vendors} go={setSection}/>}
    {section==="Timeline"&&<Timeline project={project} events={events} refresh={()=>load(project)}/>}
@@ -77,7 +80,7 @@ export function Workspace(){
    {section==="Documents"&&<Documents project={project} evidence={evidence} refresh={()=>load(project)}/>}
    {section==="Costs"&&<Costs project={project} events={events}/>}
    {section==="Schedule"&&<Schedule project={project} events={events}/>}
-   {section==="Project Data"&&<ProjectData project={project} companies={companies}/>}
+   {section==="Project Data"&&<ProjectData project={project} companies={companies} refresh={()=>load(project)}/>}
   </main>
  </div>
 }
@@ -178,5 +181,24 @@ function Ask({project,companies,evidence,events}:{project:Project;companies:Comp
 
 function Costs({project,events}:{project:Project;events:EventRow[]}){const impacted=events.filter(e=>e.cost_impact!=null);const total=impacted.reduce((s,e)=>s+Number(e.cost_impact||0),0);return <section className="panel page-panel"><p className="eyebrow">COST INTELLIGENCE</p><h3>Budget & linked impacts</h3><div className="big-stat"><strong>{money(project.original_budget)}</strong><span>Original budget</span></div>{impacted.length?<div className="event-list">{impacted.map(e=><article key={e.id}><time>{fmtDate(e.start_at)}</time><div><h4>{e.title}</h4><p>{e.description}</p></div><div className="impact-stack"><span>{money(e.cost_impact)}</span></div></article>)}</div>:<Empty text="No cost impacts are linked to project events yet."/>}<div className="total-row"><span>Linked cost impact</span><strong>{money(total)}</strong></div></section>}
 function Schedule({project,events}:{project:Project;events:EventRow[]}){const impacted=events.filter(e=>e.schedule_impact_days!=null);return <section className="panel page-panel"><p className="eyebrow">SCHEDULE</p><h3>Baseline and schedule impacts</h3><div className="schedule-baseline"><div><span>Baseline start</span><strong>{fmtDate(project.baseline_start)}</strong></div><div className="baseline-line"/><div><span>Target finish</span><strong>{fmtDate(project.target_finish)}</strong></div></div>{impacted.length?<div className="event-list">{impacted.map(e=><article key={e.id}><time>{fmtDate(e.start_at)}</time><div><h4>{e.title}</h4><p>{e.description}</p></div><div className="impact-stack"><span>{e.schedule_impact_days} days</span></div></article>)}</div>:<Empty text="No schedule impacts have been linked yet."/>}</section>}
-function ProjectData({project,companies}:{project:Project;companies:Company[]}){return <section className="panel page-panel"><p className="eyebrow">CANONICAL PROJECT RECORD</p><h3>Project data</h3><div className="data-table"><div><span>Name</span><strong>{project.name}</strong></div><div><span>Address</span><strong>{project.address||"Not set"}</strong></div><div><span>City / State</span><strong>{[project.city,project.state].filter(Boolean).join(", ")||"Not set"}</strong></div><div><span>Project type</span><strong>{project.project_type||"Not set"}</strong></div><div><span>Baseline start</span><strong>{fmtDate(project.baseline_start)}</strong></div><div><span>Target finish</span><strong>{fmtDate(project.target_finish)}</strong></div><div><span>Original budget</span><strong>{money(project.original_budget)}</strong></div><div><span>Status</span><strong>{project.status}</strong></div><div><span>Connected companies</span><strong>{companies.map(c=>c.name).join(", ")||"None"}</strong></div></div></section>}
+function ProjectData({project,companies,refresh}:{project:Project;companies:Company[];refresh:()=>void}){
+ const[msg,setMsg]=useState("");
+ const[busy,setBusy]=useState(false);
+ async function uploadHero(e:React.ChangeEvent<HTMLInputElement>){
+  const file=e.target.files?.[0];if(!file)return;setBusy(true);setMsg("");
+  const s=createClient();
+  const ext=file.name.split(".").pop()||"jpg";
+  const path=project.id+"/hero-"+crypto.randomUUID()+"."+ext.replace(/[^a-zA-Z0-9]/g,"");
+  const up=await s.storage.from("project-assets").upload(path,file,{contentType:file.type||undefined,upsert:false});
+  if(up.error){setMsg(up.error.message);setBusy(false);return}
+  const save=await s.from("projects").update({hero_image_url:path,updated_at:new Date().toISOString()}).eq("id",project.id);
+  if(save.error){setMsg(save.error.message);setBusy(false);return}
+  setMsg("Custom project header image saved.");setBusy(false);refresh();e.target.value="";
+ }
+ async function clearHero(){
+  const r=await createClient().from("projects").update({hero_image_url:null,updated_at:new Date().toISOString()}).eq("id",project.id);
+  if(r.error){setMsg(r.error.message);return}setMsg("Using the automatic "+(project.project_type||"construction")+" header image.");refresh();
+ }
+ return <><section className="panel page-panel"><div className="panel-title"><div><p className="eyebrow">PROJECT APPEARANCE</p><h3>Header image</h3></div></div><p className="panel-copy">BuildPath automatically chooses imagery and messaging based on the project type. Upload a project-specific image here to override the automatic image.</p><div className="hero-control"><label className="secondary-action"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadHero} disabled={busy}/>{busy?"Uploading…":"Upload custom header"}</label>{project.hero_image_url&&<button className="text-button" onClick={clearHero}>Use automatic image instead</button>}</div>{msg&&<div className="form-message">{msg}</div>}</section><section className="panel page-panel"><p className="eyebrow">CANONICAL PROJECT RECORD</p><h3>Project data</h3><div className="data-table"><div><span>Name</span><strong>{project.name}</strong></div><div><span>Address</span><strong>{project.address||"Not set"}</strong></div><div><span>City / State</span><strong>{[project.city,project.state].filter(Boolean).join(", ")||"Not set"}</strong></div><div><span>Project type</span><strong>{project.project_type||"Not set"}</strong></div><div><span>Baseline start</span><strong>{fmtDate(project.baseline_start)}</strong></div><div><span>Target finish</span><strong>{fmtDate(project.target_finish)}</strong></div><div><span>Original budget</span><strong>{money(project.original_budget)}</strong></div><div><span>Status</span><strong>{project.status}</strong></div><div><span>Connected companies</span><strong>{companies.map(c=>c.name).join(", ")||"None"}</strong></div></div></section></>
+}
 function Empty({text}:{text:string}){return <div className="empty-state"><span>＋</span><p>{text}</p></div>}
