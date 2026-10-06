@@ -177,11 +177,9 @@ Field context:
 ${context}`;
 
   try{
-    const parts:any[]=[{type:"text",text:prompt}];
-    if(imageBytes)parts.push({type:"image",image:imageBytes,mimeType:args.mediaType||undefined});
     const result=await generateText({
       model:"openai/gpt-5-nano",
-      messages:[{role:"user",content:parts}]
+      prompt
     });
     return{intel:parseJsonObject(result.text),used:true,model:"openai/gpt-5-nano"};
   }catch{
