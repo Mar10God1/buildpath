@@ -129,6 +129,20 @@ export function ProjectSetup() {
       return;
     }
 
+    const { error: preferenceError } = await supabase.from("project_user_preferences").upsert({
+      project_id: newProjectId,
+      user_id: user.id,
+      user_role: form.userRole,
+      field_capture_default: ["superintendent","subcontractor"].includes(form.userRole),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "project_id,user_id" });
+
+    if (preferenceError) {
+      setBusy(false);
+      setError(preferenceError.message);
+      return;
+    }
+
     const companies: Array<{
       organization_id: string;
       name: string;
