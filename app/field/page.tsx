@@ -76,7 +76,7 @@ export default function FieldCapturePage(){
   const ev=await s.from("evidence").insert({
    project_id:project.id,evidence_type:evidenceType,title:title.trim()||types.find(x=>x.key===type)?.label||"Field capture",
    source_system:"field_capture",storage_path:storagePath,occurred_at:new Date().toISOString(),raw_text:notes.trim()||null,
-   metadata:{capture_type:type,original_file:file?.name||null}
+   metadata:{capture_type:type,original_file:file?.name||null},created_by:user.id
   }).select("id").single();
   if(ev.error){setMsg(ev.error.message);setBusy(false);return}
   const needsProcessing=!!file&&(file.type.startsWith("audio/")||["receipt","invoice"].includes(type));
