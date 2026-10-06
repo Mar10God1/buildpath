@@ -22,7 +22,24 @@ export function ConsultationMeetings({projectId,evidence,refresh}:{projectId:str
  async function loadFile(e:ChangeEvent<HTMLInputElement>){const file=e.target.files?.[0];if(!file)return;setSource(file.name.endsWith(".vtt")?"Video transcript":file.name.endsWith(".srt")?"Caption transcript":"Transcript file");const text=await file.text();setTranscript(text);if(!title)setTitle(file.name.replace(/\.(txt|vtt|srt|csv)$/i,""))}
  function extractCandidates(text:string,evidenceId:string){
   const sentences=text.replace(/\r/g," ").split(/(?<=[.!?])\s+|\n+/).map(s=>s.trim()).filter(s=>s.length>18);
+  const workstreamFor=(s:string)=>{
+   if(/workforce|headcount|employee|compensation|salary|hris/i.test(s))return "workforce_planning";
+   if(/integration|import|export|api|gl |general ledger|data load|connector|hris file/i.test(s))return "integrations";
+   if(/dimension|hierarch|cost center|account structure|level/i.test(s))return "dimensions";
+   if(/report|dashboard|p&l|variance|management pack/i.test(s))return "reporting";
+   if(/uat|user acceptance|training|train|test script|sign.?off|go.?live readiness/i.test(s))return "uat_training";
+   return "financial_model";
+  };
+  const milestoneTitle=(s:string)=>{
+   const clean=s.replace(/^(we|client|customer|finance|team)\s+/i,"").replace(/[.!?]+$/,"").trim();
+   return clean.length>74?clean.slice(0,71)+"…":clean;
+  };
+  const dateFrom=(s:string)=>{
+   const iso=s.match(/\b(20\d{2})[-/](\d{1,2})[-/](\d{1,2})\b/);if(iso)return iso[1]+"-"+iso[2].padStart(2,"0")+"-"+iso[3].padStart(2,"0");
+   return "";
+  };
   const rules=[
+   {subtype:"milestone",test:/\b(approved|approval|complete|completed|sign.?off|signed off|ready|validated|validation|delivered|delivery|configured|built|tested|uat|training|go.?live readiness)\b/i,title:"Suggested milestone"},
    {subtype:"change",test:/\b(add|change|expand|include|new requirement|out of scope|scope)\b/i,title:"Possible scope change"},
    {subtype:"decision",test:/\b(decided|agreed|approved|decision|we will use|go with)\b/i,title:"Possible decision"},
    {subtype:"dependency",test:/\b(client|customer|finance|fp&a|team)\b.*\b(provide|send|deliver|upload|confirm|approve|owe|waiting)\b/i,title:"Possible client dependency"},
@@ -30,8 +47,8 @@ export function ConsultationMeetings({projectId,evidence,refresh}:{projectId:str
    {subtype:"risk",test:/\b(risk|delay|blocked|blocker|issue|concern|slip|late)\b/i,title:"Possible risk"}
   ];
   const seen=new Set<string>(),out:any[]=[];
-  for(const sentence of sentences){for(const rule of rules){if(rule.test.test(sentence)){const key=rule.subtype+"|"+sentence.toLowerCase();if(seen.has(key))continue;seen.add(key);out.push({candidate_type:rule.subtype==="commitment"?"commitment":"event",candidate_key:rule.subtype,confidence:.72,proposed_value:{subtype:rule.subtype,title:rule.title,description:sentence,source_quote:sentence,date,evidence_id:evidenceId,schedule_impact_days:0,cost_impact:0,status:"open"}});break}}}
-  return out.slice(0,12);
+  for(const sentence of sentences){for(const rule of rules){if(rule.test.test(sentence)){const key=rule.subtype+"|"+sentence.toLowerCase();if(seen.has(key))continue;seen.add(key);const milestone=rule.subtype==="milestone";out.push({candidate_type:milestone?"requirement":rule.subtype==="commitment"?"commitment":"event",candidate_key:rule.subtype,confidence:milestone?.84:.72,proposed_value:{subtype:rule.subtype,title:milestone?milestoneTitle(sentence):rule.title,description:sentence,source_quote:sentence,date,evidence_id:evidenceId,schedule_impact_days:0,cost_impact:0,status:milestone?"not_started":"open",workstream_key:milestone?workstreamFor(sentence):undefined,target_date:milestone?dateFrom(sentence):undefined,owner:"",scope_origin:milestone&&/\b(add|new|extra|additional|phase one instead|wasn't|was not|not in scope)\b/i.test(sentence)?"added":"original"}});break}}}
+  return out.slice(0,16);
  }
  async function save(){
   if(!title.trim()||!transcript.trim()){setMessage("Add a meeting title and transcript first.");return}
