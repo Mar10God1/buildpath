@@ -176,14 +176,25 @@ Field context:
 ${context}`;
 
   try{
-    const ai:any=await import("ai");
+    const oidc:any=await import("@vercel/oidc");
+    const oidcToken=await oidc.getVercelOidcToken();
+    if(!oidcToken)return{intel:null,used:false,model:null};
+
     const content:any[]=[{type:"text",text:prompt}];
-    if(imageBytes)content.push({type:"image",image:imageBytes,mediaType:args.mediaType||undefined});
-    const result=await ai.generateText({
-      model:"openai/gpt-5-nano",
-      messages:[{role:"user",content}]
+    if(imageBytes){
+      const base64=Buffer.from(imageBytes).toString("base64");
+      content.push({type:"image_url",image_url:{url:"data:"+(args.mediaType||"image/jpeg")+";base64,"+base64}});
+    }
+    const response=await fetch("https://ai-gateway.vercel.sh/v1/chat/completions",{
+      method:"POST",
+      headers:{Authorization:"Bearer "+oidcToken,"Content-Type":"application/json"},
+      body:JSON.stringify({model:"openai/gpt-5-nano",messages:[{role:"user",content}],stream:false})
     });
-    return{intel:parseJsonObject(result.text),used:true,model:"openai/gpt-5-nano"};
+    if(!response.ok)return{intel:null,used:false,model:null};
+    const body=await response.json() as any;
+    const text=body?.choices?.[0]?.message?.content;
+    if(typeof text!=="string")return{intel:null,used:false,model:null};
+    return{intel:parseJsonObject(text),used:true,model:"openai/gpt-5-nano"};
   }catch{
     return{intel:null,used:false,model:null};
   }
