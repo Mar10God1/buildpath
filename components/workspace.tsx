@@ -88,7 +88,7 @@ export function Workspace(){
    <div className="global-topbar"><div className="global-search">⌕ <span>Search projects, documents, subs, or ask anything...</span></div><div className="global-user"><span className="notify-dot">●</span><span className="user-avatar">MG</span><span><strong>BuildPath</strong><small>Project workspace</small></span></div></div>
    <header className="topbar" style={{backgroundImage:"linear-gradient(90deg,rgba(10,11,12,.88),rgba(10,11,12,.54) 55%,rgba(10,11,12,.35)),url("+JSON.stringify(heroImage||visual.image)+")"}}><div><p className="eyebrow">{visual.eyebrow}</p><h1>{visual.headline}</h1><p>{visual.subhead}</p></div></header><section className="project-ribbon"><div><small>Project</small><strong>{project.name}</strong></div><div className="project-ribbon-meta"><span>{location||"Location not set"}</span><span>{project.project_type||"Project"}</span><span>{money(project.original_budget)}</span></div><button onClick={()=>setSection("Project Data")}>View Project →</button></section>
    {error&&<div className="form-message">{error}</div>}
-   {section==="Overview"&&<Overview project={project} companies={companies} people={people} evidence={evidence} events={events} vendors={vendors} go={setSection}/>}
+   {section==="Overview"&&<Overview project={project} companies={companies} people={people} evidence={evidence} events={events} vendors={vendors} visibleModules={adaptiveModules.filter(m=>m.visibility==="visible")} go={setSection}/>}
    {section==="Timeline"&&<Timeline project={project} events={events} refresh={()=>load(project)}/>}
    {section==="Ask BuildPath"&&<Ask project={project} companies={companies} evidence={evidence} events={events}/>}
    {section==="People & Companies"&&<PeopleCompanies project={project} companies={companies} people={people} refresh={()=>load(project)}/>}
@@ -100,7 +100,7 @@ export function Workspace(){
  </div>
 }
 
-function Overview({project,companies,people,evidence,events,vendors,go}:{project:Project;companies:Company[];people:Person[];evidence:Evidence[];events:EventRow[];vendors:VendorSummary[];go:(s:string)=>void}){
+function Overview({project,companies,people,evidence,events,vendors,visibleModules,go}:{project:Project;companies:Company[];people:Person[];evidence:Evidence[];events:EventRow[];vendors:VendorSummary[];visibleModules:{key:ModuleKey;label:string;icon:string;reason:string}[];go:(s:string)=>void}){
  const span=days(project.baseline_start,project.target_finish);
  const totalImpact=events.reduce((s,e)=>s+(Number(e.cost_impact)||0),0);
  const scheduleImpact=events.reduce((s,e)=>s+(Number(e.schedule_impact_days)||0),0);
@@ -110,6 +110,7 @@ function Overview({project,companies,people,evidence,events,vendors,go}:{project
  const recentEvidence=evidence.slice(0,5);
  const approvals=events.filter(e=>["pending","submitted","under_review","open"].includes((e.status||"").toLowerCase())||["change","decision"].includes(e.event_type)).slice(0,5);
  const recentEvents=[...events].sort((a,b)=>new Date(b.start_at||0).getTime()-new Date(a.start_at||0).getTime()).slice(0,5);
+ const show=(key:ModuleKey)=>visibleModules.some(m=>m.key===key);
  const scheduleRows=[
   ["Site Work",100],
   ["Foundations",Math.min(100,Math.max(25,100-scheduleImpact*2))],
@@ -134,22 +135,27 @@ function Overview({project,companies,people,evidence,events,vendors,go}:{project
    <div className="question-presets"><button onClick={()=>go("Ask BuildPath")}>What’s driving schedule risk?</button><button onClick={()=>go("Ask BuildPath")}>Show pending approvals</button><button onClick={()=>go("Ask BuildPath")}>Summarize project activity</button><button onClick={()=>go("Ask BuildPath")}>Which subs need attention?</button></div>
   </section>
 
-  <section className="panel dashboard-card schedule-card">
+  {show("schedule")&&<section className="panel dashboard-card schedule-card">
    <div className="panel-title"><h3>▣ &nbsp; Schedule</h3><button className="text-button" onClick={()=>go("Schedule")}>View Schedule →</button></div>
    <div className="schedule-mini">{scheduleRows.map(([label,pct])=><div key={label}><span>{label}</span><i><b style={{width:pct+"%"}}/></i><strong>{pct}%</strong></div>)}</div>
-  </section>
+  </section>}
 
-  <section className="panel dashboard-card cost-card">
+  {show("cost")&&<section className="panel dashboard-card cost-card">
    <div className="panel-title"><h3>◉ &nbsp; Cost</h3><button className="text-button" onClick={()=>go("Costs")}>View Cost →</button></div>
    <div className="cost-top"><div><span>Total Budget</span><strong>{money(project.original_budget)}</strong></div><div><span>Forecast</span><strong>{money(forecast)}</strong></div><div><span>Linked Impact</span><strong className={totalImpact>0?"warn-text":"ok-text"}>{money(totalImpact)}</strong></div></div>
    <div className="cost-bar"><b style={{width:project.original_budget?Math.min(100,(forecast/project.original_budget)*100)+"%":"0%"}}/></div>
    <div className="cost-bottom"><div><span>Schedule exposure</span><strong>{scheduleImpact} days</strong></div><div><span>Evidence-backed changes</span><strong>{events.filter(e=>e.cost_impact).length}</strong></div><div><span>Variance</span><strong>{money(totalImpact)}</strong></div></div>
-  </section>
+  </section>}
 
-  <section className="panel dashboard-card compliance-card">
+  {(show("vendors")||show("compliance"))&&<section className="panel dashboard-card compliance-card">
    <div className="panel-title"><h3>♟ &nbsp; Subcontractor Compliance</h3><a className="text-button" href={"/vendors?project="+project.id}>View All →</a></div>
    <div className="compliance-layout"><div className="compliance-ring" style={{background:"conic-gradient(var(--green) 0 "+compliance+"%, #f0ad28 "+compliance+"% "+Math.min(100,compliance+12)+"%, #e6e7e4 "+Math.min(100,compliance+12)+"% 100%)"}}><strong>{compliance}%</strong><span>Compliant</span></div><div className="compliance-legend"><p><i className="legend-green"/>Complete <b>{completeVendors}</b></p><p><i className="legend-yellow"/>Pending <b>{vendors.filter(v=>["invited","in_progress","submitted"].includes(v.compliance_status)).length}</b></p><p><i className="legend-red"/>Attention <b>{vendors.filter(v=>["needs_attention","expired"].includes(v.compliance_status)).length}</b></p></div></div>
    <div className="mini-compliance"><div><span>W-9 Collection</span><strong>{completeVendors} of {vendors.length||0}</strong></div><div><span>COI Tracking</span><strong>{vendors.filter(v=>v.compliance_status==="approved").length} of {vendors.length||0}</strong></div></div>
+  </section>}
+
+  <section className="panel adaptive-summary">
+   <div className="panel-title"><div><p className="eyebrow">TAILORED TO THIS JOB</p><h3>Priority workflows</h3></div><button className="text-button" onClick={()=>go("Project Data")}>Customize →</button></div>
+   <div className="adaptive-tags">{visibleModules.filter(m=>!["home","timeline","documents","ask","schedule","cost","vendors","project_data"].includes(m.key)).slice(0,6).map(m=><button key={m.key} onClick={()=>go(moduleSection(m.key))}><b>{m.icon} {m.label}</b><small>{m.reason}</small></button>)}</div>
   </section>
 
   <section className="panel dashboard-list">
