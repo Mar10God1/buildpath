@@ -1,0 +1,29 @@
+"use client";
+import { FormEvent,useEffect,useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+
+type Rule={id:string;name:string;provider:string;sender_pattern:string|null;subject_pattern:string|null;keyword_pattern:string|null;action:string;is_enabled:boolean};
+
+export function ConsultationEmail({projectId}:{projectId:string}){
+ const[rules,setRules]=useState<Rule[]>([]),[message,setMessage]=useState(""),[show,setShow]=useState(false);
+ const[form,setForm]=useState({name:"Client project email",provider:"outlook",sender:"",subject:"",keywords:"",action:"copy_to_project"});
+ async function load(){const r=await createClient().from("consultation_email_rules").select("*").eq("project_id",projectId).order("created_at",{ascending:false});if(r.error)setMessage(r.error.message);else setRules(r.data||[])}
+ useEffect(()=>{load()},[projectId]);
+ async function save(e:FormEvent){e.preventDefault();const s=createClient(),u=await s.auth.getUser();const r=await s.from("consultation_email_rules").insert({project_id:projectId,name:form.name,provider:form.provider,sender_pattern:form.sender||null,subject_pattern:form.subject||null,keyword_pattern:form.keywords||null,action:form.action,created_by:u.data.user?.id||null});if(r.error){setMessage(r.error.message);return}setShow(false);setMessage("Rule saved. It will become active when the mailbox connection is authorized.");load()}
+ async function toggle(rule:Rule){await createClient().from("consultation_email_rules").update({is_enabled:!rule.is_enabled,updated_at:new Date().toISOString()}).eq("id",rule.id);load()}
+ async function remove(id:string){await createClient().from("consultation_email_rules").delete().eq("id",id);load()}
+ return <section className="cp-email">
+  <div className="cp-card">
+   <div className="cp-card-head"><div><p className="cp-kicker">EMAIL INGESTION</p><h2>Send project email directly into the engagement</h2><p className="cp-muted">Connect a mailbox, define what counts as project mail, and let ConsultationPath turn relevant messages and attachments into evidence and review candidates.</p></div><button className="cp-primary" onClick={()=>setShow(true)}>＋ Add email rule</button></div>
+   <div className="cp-email-connectors">
+    <article><strong>Microsoft Outlook</strong><span>Best fit for most consulting firms</span><button className="cp-secondary" onClick={()=>setMessage("Outlook OAuth connection is the next integration step. The rule model is ready.")}>Connect Outlook</button></article>
+    <article><strong>Gmail</strong><span>Create filters/labels for matching project mail</span><button className="cp-secondary" onClick={()=>setMessage("Gmail OAuth connection is the next integration step. The rule model is ready.")}>Connect Gmail</button></article>
+    <article><strong>Forwarding address</strong><span>Forward selected mail without granting mailbox access</span><button className="cp-secondary" onClick={()=>setMessage("A unique project forwarding address requires the ConsultationPath inbound mail domain to be configured.")}>Set up forwarding</button></article>
+   </div>
+   {message&&<div className="cp-message">{message}</div>}
+  </div>
+  {show&&<form className="cp-card cp-email-rule-form" onSubmit={save}><p className="cp-kicker">NEW EMAIL RULE</p><h3>What email belongs to this engagement?</h3><div className="cp-entry-grid"><label>Rule name<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label><label>Mailbox<select value={form.provider} onChange={e=>setForm({...form,provider:e.target.value})}><option value="outlook">Outlook</option><option value="gmail">Gmail</option><option value="manual_forward">Forwarding only</option></select></label><label>Sender / domain<input value={form.sender} onChange={e=>setForm({...form,sender:e.target.value})} placeholder="@northstarfoods.com or person@client.com"/></label><label>Subject contains<input value={form.subject} onChange={e=>setForm({...form,subject:e.target.value})} placeholder="Adaptive Planning"/></label><label className="wide">Keywords<input value={form.keywords} onChange={e=>setForm({...form,keywords:e.target.value})} placeholder="forecast, workforce, UAT, integration"/></label><label className="wide">When it matches<select value={form.action} onChange={e=>setForm({...form,action:e.target.value})}><option value="copy_to_project">Copy email to ConsultationPath</option><option value="label_and_copy">Label in mailbox + copy to ConsultationPath</option><option value="forward_to_project">Forward to project inbox</option></select></label></div><div className="cp-entry-actions"><button type="button" className="cp-secondary" onClick={()=>setShow(false)}>Cancel</button><button className="cp-primary">Save rule</button></div></form>}
+  <div className="cp-card"><p className="cp-kicker">PROJECT EMAIL RULES</p><h3>What gets captured automatically</h3>{rules.map(r=><article className="cp-email-rule" key={r.id}><div><strong>{r.name}</strong><span>{r.provider} · {r.is_enabled?"Enabled":"Paused"}</span><small>{[r.sender_pattern&&"From "+r.sender_pattern,r.subject_pattern&&'Subject contains "'+r.subject_pattern+'"',r.keyword_pattern&&"Keywords: "+r.keyword_pattern].filter(Boolean).join(" · ")||"No criteria set"}</small></div><div><button className="cp-link" onClick={()=>toggle(r)}>{r.is_enabled?"Pause":"Enable"}</button><button className="cp-link danger" onClick={()=>remove(r.id)}>Delete</button></div></article>)}{!rules.length&&<p className="cp-empty">No project email rules yet.</p>}</div>
+  <div className="cp-card"><p className="cp-kicker">HOW EMAIL FLOWS</p><div className="cp-email-flow"><span>Inbox rule</span><b>→</b><span>Project email</span><b>→</b><span>Evidence</span><b>→</b><span>Review Inbox</span><b>→</b><span>Confirmed fact</span></div></div>
+ </section>
+}
