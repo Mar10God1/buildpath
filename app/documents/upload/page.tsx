@@ -69,6 +69,12 @@ export default function UploadExtractPage(){
    if(rawDate){const parsed=new Date(rawDate);if(!Number.isNaN(parsed.getTime()))startAt=parsed.toISOString()}
    await s.from("project_events").insert({project_id:project.id,event_type:eventType,title,description,start_at:startAt,date_precision:"day"});
   }
+  if(status==="accepted"&&candidate.candidate_type==="requirement"){
+   const v=candidate.proposed_value;
+   const key=typeof v.requirement_key==="string"?v.requirement_key:(candidate.candidate_key||"document_requirement");
+   const label=typeof v.label==="string"?v.label:key.replaceAll("_"," ");
+   await s.from("project_requirements").upsert({project_id:project.id,requirement_key:key,label,enabled:true,source:"document",notes:"Detected from uploaded project evidence",updated_at:new Date().toISOString()},{onConflict:"project_id,requirement_key"});
+  }
   await s.from("extraction_candidates").update({status,reviewed_at:new Date().toISOString()}).eq("id",candidate.id);
   await load();
  }
