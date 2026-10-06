@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { BuildPathLogo } from "@/components/buildpath-logo";
+import { AdaptiveSettings } from "@/components/adaptive-settings";
 import { getProjectVisual } from "@/lib/project-visuals";
 import { buildWorkspace, type ProjectRequirement, type ModulePreference, type ModuleKey } from "@/lib/adaptive-workspace";
 
@@ -94,7 +95,7 @@ export function Workspace(){
    {section==="Documents"&&<Documents project={project} evidence={evidence} refresh={()=>load(project)}/>}
    {section==="Costs"&&<Costs project={project} events={events}/>}
    {section==="Schedule"&&<Schedule project={project} events={events}/>}
-   {section==="Project Data"&&<ProjectData project={project} companies={companies} refresh={()=>load(project)}/>}
+   {section==="Project Data"&&<><AdaptiveSettings project={adaptiveProject} requirements={requirements} modules={adaptiveModules} companyCount={companies.length} documentCount={evidence.length} refresh={()=>load(project)}/><ProjectData project={project} companies={companies} refresh={()=>load(project)}/></>}
   </main>
  </div>
 }
