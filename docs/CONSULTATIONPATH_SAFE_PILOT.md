@@ -12,6 +12,8 @@ This checklist defines the minimum operating standard before a real external pil
 - Stronger 10-character password minimum in ConsultationPath UI.
 - Version-controlled database migration and Edge Function source.
 - Vercel feature-branch previews used before production merge.
+- Self-serve activation checklist guides testers without a setup call.
+- In-product pilot feedback captures usefulness, ease-of-use, willingness-to-pay, price expectation and missing capabilities.
 
 ## Required before wider beta
 - Enable Supabase leaked-password protection.
@@ -24,3 +26,7 @@ This checklist defines the minimum operating standard before a real external pil
 
 ## Release rule
 No schema, RLS, ingestion, or auth change should be tested first against production data. Use the staging branch/database once provisioned, then promote only after the preview passes functional and security checks.
+
+
+## Cost control
+No paid plan, infrastructure upgrade, API subscription, or other recurring/usage-based service may be enabled without explicit owner approval. During validation, prefer existing/free-tier capabilities unless doing so would compromise data security or tester isolation.
