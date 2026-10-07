@@ -20,36 +20,6 @@ export function ConsultationMeetings({projectId,evidence,refresh}:{projectId:str
  }
  function stopMic(){try{recognition.current?.stop()}catch{}setListening(false)}
  async function loadFile(e:ChangeEvent<HTMLInputElement>){const file=e.target.files?.[0];if(!file)return;setSource(file.name.endsWith(".vtt")?"Video transcript":file.name.endsWith(".srt")?"Caption transcript":"Transcript file");const text=await file.text();setTranscript(text);if(!title)setTitle(file.name.replace(/\.(txt|vtt|srt|csv)$/i,""))}
- function extractCandidates(text:string,evidenceId:string){
-  const sentences=text.replace(/\r/g," ").split(/(?<=[.!?])\s+|\n+/).map(s=>s.trim()).filter(s=>s.length>18);
-  const workstreamFor=(s:string)=>{
-   if(/workforce|headcount|employee|compensation|salary|hris/i.test(s))return "workforce_planning";
-   if(/integration|import|export|api|gl |general ledger|data load|connector|hris file/i.test(s))return "integrations";
-   if(/dimension|hierarch|cost center|account structure|level/i.test(s))return "dimensions";
-   if(/report|dashboard|p&l|variance|management pack/i.test(s))return "reporting";
-   if(/uat|user acceptance|training|train|test script|sign.?off|go.?live readiness/i.test(s))return "uat_training";
-   return "financial_model";
-  };
-  const milestoneTitle=(s:string)=>{
-   const clean=s.replace(/^(we|client|customer|finance|team)\s+/i,"").replace(/[.!?]+$/,"").trim();
-   return clean.length>74?clean.slice(0,71)+"…":clean;
-  };
-  const dateFrom=(s:string)=>{
-   const iso=s.match(/\b(20\d{2})[-/](\d{1,2})[-/](\d{1,2})\b/);if(iso)return iso[1]+"-"+iso[2].padStart(2,"0")+"-"+iso[3].padStart(2,"0");
-   return "";
-  };
-  const rules=[
-   {subtype:"milestone",test:/\b(approved|approval|complete|completed|sign.?off|signed off|ready|validated|validation|delivered|delivery|configured|built|tested|uat|training|go.?live readiness)\b/i,title:"Suggested milestone"},
-   {subtype:"change",test:/\b(add|change|expand|include|new requirement|out of scope|scope)\b/i,title:"Possible scope change"},
-   {subtype:"decision",test:/\b(decided|agreed|approved|decision|we will use|go with)\b/i,title:"Possible decision"},
-   {subtype:"dependency",test:/\b(client|customer|finance|fp&a|team)\b.*\b(provide|send|deliver|upload|confirm|approve|owe|waiting)\b/i,title:"Possible client dependency"},
-   {subtype:"commitment",test:/\b(i will|we will|we'll|by friday|by monday|by next|commit|follow up)\b/i,title:"Possible commitment"},
-   {subtype:"risk",test:/\b(risk|delay|blocked|blocker|issue|concern|slip|late)\b/i,title:"Possible risk"}
-  ];
-  const seen=new Set<string>(),out:any[]=[];
-  for(const sentence of sentences){for(const rule of rules){if(rule.test.test(sentence)){const key=rule.subtype+"|"+sentence.toLowerCase();if(seen.has(key))continue;seen.add(key);const milestone=rule.subtype==="milestone";out.push({candidate_type:milestone?"requirement":rule.subtype==="commitment"?"commitment":"event",candidate_key:rule.subtype,confidence:milestone?.84:.72,proposed_value:{subtype:rule.subtype,title:milestone?milestoneTitle(sentence):rule.title,description:sentence,source_quote:sentence,date,evidence_id:evidenceId,schedule_impact_days:0,cost_impact:0,status:milestone?"not_started":"open",workstream_key:milestone?workstreamFor(sentence):undefined,target_date:milestone?dateFrom(sentence):undefined,owner:"",scope_origin:milestone&&/\b(add|new|extra|additional|phase one instead|wasn't|was not|not in scope)\b/i.test(sentence)?"added":"original"}});break}}}
-  return out.slice(0,16);
- }
  async function save(){
   if(!title.trim()||!transcript.trim()){setMessage("Add a meeting title and transcript first.");return}
   const s=createClient(),u=await s.auth.getUser();const occurred_at=date?date+"T12:00:00":null;
@@ -59,9 +29,15 @@ export function ConsultationMeetings({projectId,evidence,refresh}:{projectId:str
   if(a.error){setMessage(a.error.message);return}
   const b=await s.from("project_events").insert({project_id:projectId,event_type:"meeting",title:title.trim(),description:"Meeting transcript captured in ConsultationPath",start_at:date||null,date_precision:"day",status:"complete",cost_impact:0,schedule_impact_days:0,created_by:u.data.user?.id||null});
   if(b.error){setMessage("Transcript saved, but timeline entry failed: "+b.error.message);refresh();return}
-  const job=await s.from("ingestion_jobs").insert({project_id:projectId,evidence_id:a.data.id,storage_path:"inline/"+a.data.id,file_name:title.trim()+".txt",mime_type:"text/plain",status:"needs_review",extracted_text:transcript.trim(),extracted_metadata:{source:"meeting",meeting_title:title.trim()},created_by:u.data.user?.id||null}).select("id").single();
-  if(!job.error){const candidates=extractCandidates(transcript.trim(),a.data.id).map(x=>({...x,job_id:job.data.id,project_id:projectId}));if(candidates.length)await s.from("extraction_candidates").insert(candidates);else await s.from("ingestion_jobs").update({status:"complete",completed_at:new Date().toISOString()}).eq("id",job.data.id)}
-  setTitle("");setTranscript("");setSource("Live meeting");setMessage("Meeting saved. Review suggested changes in Review Inbox.");refresh();
+  const processing=await s.functions.invoke("consultation-ingest",{body:{evidence_id:a.data.id}});
+  setTitle("");setTranscript("");setSource("Live meeting");
+  if(processing.error){
+   setMessage("Meeting saved, but server-side review processing failed: "+processing.error.message+". The transcript remains safely stored as evidence.");
+  }else{
+   const count=Number(processing.data?.candidate_count||0);
+   setMessage(count?("Meeting saved and processed. "+count+" suggested item"+(count===1?" is":"s are")+" waiting in Review Inbox."):"Meeting saved and processed. No review items were suggested.");
+  }
+  refresh();
  }
  return <section className="cp-meetings">
   <div className="cp-card">
