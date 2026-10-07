@@ -17,6 +17,9 @@ Implemented or underway:
 - audit trail
 - self-serve activation checklist
 - in-product pilot feedback including willingness-to-pay and price expectation
+- SOW-assisted baseline recommendations using the existing server-side ingestion pipeline
+- deterministic cross-source duplicate suppression across prior changes, milestones and review candidates
+- engagement value summary highlighting tracked added fees, potential unbilled scope, schedule movement, evidence captured and reviewed recommendations
 
 Exit criteria:
 - tester completes the core workflow independently
@@ -28,13 +31,11 @@ Exit criteria:
 Goal: test repeatability across different platforms and consulting types, not just one tester's ecosystem. Recruit the 10 validation users across at least three platforms or engagement types (for example Salesforce, NetSuite, and an advisory or fractional-CFO practice).
 
 Priority:
-1. SOW ingestion that proposes baseline workstreams and milestones.
-2. Model-backed extraction instead of rules-only extraction.
-3. Deduplication across meetings, email and documents.
-4. Direct Outlook/Teams integration first.
-5. Engagement health/value summary.
-6. Automated support/help content.
-7. Product analytics for activation and recurring usage.
+1. Model-backed extraction instead of rules-only extraction, only after explicit approval of any paid AI usage.
+2. Direct Outlook/Teams integration first when a no-cost or approved-cost connection path is available.
+3. Expand duplicate reconciliation beyond text similarity when the validation data justifies it.
+4. Automated support/help content.
+5. Product analytics for activation and recurring usage.
 8. Optional starter workstream templates by engagement type (ERP, CRM, advisory), always editable, never platform-locked.
 
 Do not build enterprise administration prematurely.
