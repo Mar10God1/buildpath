@@ -49,7 +49,7 @@ export function ConsultationMeetings({projectId,evidence,refresh}:{projectId:str
    </div>
   </div>
   <div className="cp-card">
-   <p className="cp-kicker">NEW MEETING</p><div className="cp-meeting-meta"><label>Meeting title<input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Weekly Adaptive Planning design session"/></label><label>Date<input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label><label>Source<input value={source} onChange={e=>setSource(e.target.value)} placeholder="Zoom / Teams / Live"/></label></div>
+   <p className="cp-kicker">NEW MEETING</p><div className="cp-meeting-meta"><label>Meeting title<input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Weekly design session"/></label><label>Date<input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label><label>Source<input value={source} onChange={e=>setSource(e.target.value)} placeholder="Zoom / Teams / Live"/></label></div>
    <label className="cp-transcript-label">Transcript<textarea value={transcript} onChange={e=>setTranscript(e.target.value)} placeholder="Paste a transcript here, upload one above, or use live microphone capture…"/></label>
    <div className="cp-transcript-actions"><small>{transcript.length.toLocaleString()} characters captured</small><button className="cp-primary" onClick={save}>Save meeting to engagement →</button></div>{message&&<div className="cp-message cp-meeting-message">{message}</div>}
   </div>

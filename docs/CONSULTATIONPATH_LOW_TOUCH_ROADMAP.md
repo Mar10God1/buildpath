@@ -6,6 +6,7 @@ Goal: prove that an independent consultant can get value without founder-led onb
 Implemented or underway:
 - self-serve account and engagement setup
 - original scope baseline
+- per-engagement workstreams with platform-neutral defaults (rename, add, mark in/out of scope)
 - workstream milestones
 - original-vs-added scope distinction
 - meeting transcript ingestion
@@ -24,7 +25,7 @@ Exit criteria:
 - feedback identifies willingness-to-pay and the biggest missing workflow
 
 ## Phase 2 — 10-user validation
-Goal: test repeatability.
+Goal: test repeatability across different platforms and consulting types, not just one tester's ecosystem. Recruit the 10 validation users across at least three platforms or engagement types (for example Salesforce, NetSuite, and an advisory or fractional-CFO practice).
 
 Priority:
 1. SOW ingestion that proposes baseline workstreams and milestones.
@@ -34,6 +35,7 @@ Priority:
 5. Engagement health/value summary.
 6. Automated support/help content.
 7. Product analytics for activation and recurring usage.
+8. Optional starter workstream templates by engagement type (ERP, CRM, advisory), always editable, never platform-locked.
 
 Do not build enterprise administration prematurely.
 

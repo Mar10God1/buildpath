@@ -15,7 +15,7 @@ export function ConsultationActivation({projectId,onNavigate}:{projectId:string;
   s.from("consultation_email_rules").select("id",{count:"exact",head:true}).eq("project_id",projectId)
  ]);setCounts({scope:scope.count||0,milestones:milestones.count||0,evidence:evidence.count||0,meetings:meetings.count||0,reviewed:reviewed.count||0,emailRules:emailRules.count||0})})()},[projectId]);
  const steps=useMemo(()=>[
-  {label:"Confirm original scope",done:counts.scope>0,tab:"Engagement Data",detail:"Mark each Adaptive Planning workstream as original, added later, or out of scope."},
+  {label:"Confirm original scope",done:counts.scope>0,tab:"Engagement Data",detail:"Name your workstreams and mark each as original scope, added later, or out of scope."},
   {label:"Add the first milestones",done:counts.milestones>0,tab:"Workstreams",detail:"Give each workstream concrete delivery checkpoints and target dates."},
   {label:"Add source evidence",done:counts.evidence>0,tab:"Evidence",detail:"Upload the SOW, requirements, approvals, or other project evidence."},
   {label:"Capture a client conversation",done:counts.meetings>0,tab:"Meetings",detail:"Paste, upload, or capture a meeting transcript and let ConsultationPath suggest changes."},

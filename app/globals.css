@@ -548,7 +548,7 @@ a{color:inherit}
 .adaptive-tags>button b{font-size:10px}.adaptive-tags>button small{font-size:8px;color:var(--muted)}
 
 
-/* ConsultationPath — Workday Adaptive Planning pilot */
+/* ConsultationPath */
 .cp-shell{min-height:100vh;display:grid;grid-template-columns:238px minmax(0,1fr);background:#f4f1ea;color:#17201f}
 .cp-sidebar{height:100vh;position:sticky;top:0;background:linear-gradient(180deg,#13201e,#0d1716);padding:24px 16px;color:#eef4f1;display:flex;flex-direction:column}
 .cp-brand{display:flex;align-items:center;gap:10px;margin-bottom:28px}

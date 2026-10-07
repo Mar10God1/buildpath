@@ -4,13 +4,36 @@ import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-function workstreamFor(s: string) {
-  if (/workforce|headcount|employee|compensation|salary|hris/i.test(s)) return "workforce_planning";
-  if (/integration|import|export|api|gl |general ledger|data load|connector|hris file/i.test(s)) return "integrations";
-  if (/dimension|hierarch|cost center|account structure|level/i.test(s)) return "dimensions";
-  if (/report|dashboard|p&l|variance|management pack/i.test(s)) return "reporting";
-  if (/uat|user acceptance|training|train|test script|sign.?off|go.?live readiness/i.test(s)) return "uat_training";
-  return "financial_model";
+type Workstream = { key: string; label: string };
+
+// Generic signals that work for most implementations (Salesforce, NetSuite, HubSpot, ServiceNow, custom builds, …).
+// Each is matched against the engagement's own workstream names, so custom workstreams still get sensible routing.
+const GENERIC_SIGNALS: { pattern: RegExp; hints: RegExp }[] = [
+  { pattern: /integration|import|export|api|migration|migrate|data load|connector|feed|interface|extract|file/i, hints: /data|integration|migration|interface/i },
+  { pattern: /report|dashboard|analytics|kpi|variance|metric/i, hints: /report|analytic|dashboard|insight/i },
+  { pattern: /uat|user acceptance|test|testing|test script|defect|bug/i, hints: /test|uat|quality|qa/i },
+  { pattern: /training|train|go.?live|cutover|launch|hypercare|adoption|change management/i, hints: /train|go.?live|launch|cutover|adoption|change/i },
+  { pattern: /requirement|design|discovery|workshop|process map|blueprint|solution design/i, hints: /design|discovery|requirement|blueprint/i },
+  { pattern: /configur|build|setup|set up|workflow|field|object|module|customi[sz]/i, hints: /config|build|setup|develop/i },
+];
+
+const STOP = new Set(["and", "the", "for", "with", "data", "phase"]);
+
+function workstreamFor(sentence: string, streams: Workstream[]) {
+  if (!streams.length) return "general";
+  // 1. The sentence names one of the engagement's own workstreams (e.g. "CPQ", "Order-to-cash", "Payroll").
+  for (const w of streams) {
+    const words = w.label.toLowerCase().split(/[^a-z0-9]+/).filter(x => x.length > 2 && !STOP.has(x));
+    if (words.some(x => new RegExp("\\b" + x, "i").test(sentence))) return w.key;
+  }
+  // 2. A generic signal points at a workstream whose name fits that kind of work.
+  for (const g of GENERIC_SIGNALS) {
+    if (!g.pattern.test(sentence)) continue;
+    const hit = streams.find(w => g.hints.test(w.label) || g.hints.test(w.key));
+    if (hit) return hit.key;
+  }
+  // 3. Fall back to the first workstream; the consultant can change it in the Review Inbox.
+  return streams[0].key;
 }
 
 function milestoneTitle(s: string) {
@@ -24,13 +47,13 @@ function dateFrom(s: string) {
   return "";
 }
 
-function extract(text: string, evidenceId: string, meetingDate: string | null) {
+function extract(text: string, evidenceId: string, meetingDate: string | null, streams: Workstream[]) {
   const sentences = text.replace(/\r/g, " ").split(/(?<=[.!?])\s+|\n+/).map(s => s.trim()).filter(s => s.length > 18);
   const rules = [
     { subtype: "milestone", test: /\b(approved|approval|complete|completed|sign.?off|signed off|ready|validated|validation|delivered|delivery|configured|built|tested|uat|training|go.?live readiness)\b/i, title: "Suggested milestone" },
     { subtype: "change", test: /\b(add|change|expand|include|new requirement|out of scope|scope)\b/i, title: "Possible scope change" },
     { subtype: "decision", test: /\b(decided|agreed|approved|decision|we will use|go with)\b/i, title: "Possible decision" },
-    { subtype: "dependency", test: /\b(client|customer|finance|fp&a|team)\b.*\b(provide|send|deliver|upload|confirm|approve|owe|waiting)\b/i, title: "Possible client dependency" },
+    { subtype: "dependency", test: /\b(client|customer|they|their team|team)\b.*\b(provide|send|deliver|upload|confirm|approve|owe|waiting)\b/i, title: "Possible client dependency" },
     { subtype: "commitment", test: /\b(i will|we will|we'll|by friday|by monday|by next|commit|follow up)\b/i, title: "Possible commitment" },
     { subtype: "risk", test: /\b(risk|delay|blocked|blocker|issue|concern|slip|late)\b/i, title: "Possible risk" },
   ];
@@ -58,7 +81,7 @@ function extract(text: string, evidenceId: string, meetingDate: string | null) {
           schedule_impact_days: 0,
           cost_impact: 0,
           status: milestone ? "not_started" : "open",
-          workstream_key: milestone ? workstreamFor(sentence) : undefined,
+          workstream_key: milestone ? workstreamFor(sentence, streams) : undefined,
           target_date: milestone ? dateFrom(sentence) : undefined,
           owner: "",
           scope_origin: milestone && /\b(add|new|extra|additional|phase one instead|wasn't|was not|not in scope)\b/i.test(sentence) ? "added" : "original",
@@ -115,7 +138,7 @@ Deno.serve(async (req: Request) => {
       mime_type: "text/plain",
       status: "processing",
       extracted_text: evidence.raw_text.trim(),
-      extracted_metadata: { source: "meeting", processor: "consultation-ingest-v1" },
+      extracted_metadata: { source: "meeting", processor: "consultation-ingest-v2" },
       created_by: userData.user.id,
     })
     .select("id")
@@ -123,7 +146,17 @@ Deno.serve(async (req: Request) => {
 
   if (jobError || !job) return json({ error: jobError?.message || "Could not create ingestion job" }, 500);
 
-  const candidates = extract(evidence.raw_text.trim(), evidence.id, evidence.occurred_at)
+  const streamRows = await supabase
+    .from("project_requirements")
+    .select("requirement_key,label,enabled")
+    .eq("project_id", evidence.project_id)
+    .like("requirement_key", "cp_scope_%")
+    .order("created_at");
+  const streams: Workstream[] = (streamRows.data || [])
+    .filter(r => r.enabled)
+    .map(r => ({ key: String(r.requirement_key).slice("cp_scope_".length), label: r.label || "" }));
+
+  const candidates = extract(evidence.raw_text.trim(), evidence.id, evidence.occurred_at, streams)
     .map(c => ({ ...c, job_id: job.id, project_id: evidence.project_id }));
 
   if (candidates.length) {
@@ -137,7 +170,7 @@ Deno.serve(async (req: Request) => {
   await supabase.from("ingestion_jobs").update({
     status: candidates.length ? "needs_review" : "complete",
     completed_at: candidates.length ? null : new Date().toISOString(),
-    extracted_metadata: { source: "meeting", processor: "consultation-ingest-v1", candidate_count: candidates.length },
+    extracted_metadata: { source: "meeting", processor: "consultation-ingest-v2", candidate_count: candidates.length },
   }).eq("id", job.id);
 
   return json({ job_id: job.id, candidate_count: candidates.length, status: candidates.length ? "needs_review" : "complete" });
