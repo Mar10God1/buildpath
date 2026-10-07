@@ -34,8 +34,8 @@ export function ConsultationMeetings({projectId,evidence,refresh}:{projectId:str
   if(processing.error){
    setMessage("Meeting saved, but server-side review processing failed: "+processing.error.message+". The transcript remains safely stored as evidence.");
   }else{
-   const count=Number(processing.data?.candidate_count||0);
-   setMessage(count?("Meeting saved and processed. "+count+" suggested item"+(count===1?" is":"s are")+" waiting in Review Inbox."):"Meeting saved and processed. No review items were suggested.");
+   const count=Number(processing.data?.candidate_count||0),dedup=Number(processing.data?.deduplicated_count||0);
+   setMessage(count?("Meeting saved and processed. "+count+" suggested item"+(count===1?" is":"s are")+" waiting in Review Inbox"+(dedup?"; "+dedup+" likely duplicate"+(dedup===1?" was":"s were")+" suppressed.":".") ):"Meeting saved and processed. No new review items were suggested"+(dedup?" because "+dedup+" likely duplicate"+(dedup===1?" was":"s were")+" already represented in the engagement.":"."));
   }
   refresh();
  }
