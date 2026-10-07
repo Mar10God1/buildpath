@@ -2,20 +2,22 @@
 import { useEffect,useMemo,useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type Counts={scope:number;milestones:number;evidence:number;meetings:number;reviewed:number;emailRules:number};
+type Counts={sow:number;scope:number;milestones:number;evidence:number;meetings:number;reviewed:number;emailRules:number};
 
 export function ConsultationActivation({projectId,onNavigate}:{projectId:string;onNavigate:(tab:string)=>void}){
- const[counts,setCounts]=useState<Counts>({scope:0,milestones:0,evidence:0,meetings:0,reviewed:0,emailRules:0});
- useEffect(()=>{(async()=>{const s=createClient();const [scope,milestones,evidence,meetings,reviewed,emailRules]=await Promise.all([
+ const[counts,setCounts]=useState<Counts>({sow:0,scope:0,milestones:0,evidence:0,meetings:0,reviewed:0,emailRules:0});
+ useEffect(()=>{(async()=>{const s=createClient();const [sow,scope,milestones,evidence,meetings,reviewed,emailRules]=await Promise.all([
+  s.from("evidence").select("id",{count:"exact",head:true}).eq("project_id",projectId).eq("evidence_type","sow"),
   s.from("project_requirements").select("id",{count:"exact",head:true}).eq("project_id",projectId).like("requirement_key","cp_scope_%"),
   s.from("consultation_workstream_milestones").select("id",{count:"exact",head:true}).eq("project_id",projectId),
   s.from("evidence").select("id",{count:"exact",head:true}).eq("project_id",projectId),
   s.from("evidence").select("id",{count:"exact",head:true}).eq("project_id",projectId).eq("evidence_type","meeting_transcript"),
   s.from("extraction_candidates").select("id",{count:"exact",head:true}).eq("project_id",projectId).in("status",["accepted","rejected","merged"]),
   s.from("consultation_email_rules").select("id",{count:"exact",head:true}).eq("project_id",projectId)
- ]);setCounts({scope:scope.count||0,milestones:milestones.count||0,evidence:evidence.count||0,meetings:meetings.count||0,reviewed:reviewed.count||0,emailRules:emailRules.count||0})})()},[projectId]);
+ ]);setCounts({sow:sow.count||0,scope:scope.count||0,milestones:milestones.count||0,evidence:evidence.count||0,meetings:meetings.count||0,reviewed:reviewed.count||0,emailRules:emailRules.count||0})})()},[projectId]);
  const steps=useMemo(()=>[
-  {label:"Confirm original scope",done:counts.scope>0,tab:"Engagement Data",detail:"Mark each Adaptive Planning workstream as original, added later, or out of scope."},
+  {label:"Paste the original SOW",done:counts.sow>0,tab:"Engagement Data",detail:"ConsultationPath can suggest baseline workstreams and milestones before you build them manually."},
+  {label:"Confirm original scope",done:counts.scope>0,tab:"Engagement Data",detail:"Name your workstreams and mark each as original scope, added later, or out of scope."},
   {label:"Add the first milestones",done:counts.milestones>0,tab:"Workstreams",detail:"Give each workstream concrete delivery checkpoints and target dates."},
   {label:"Add source evidence",done:counts.evidence>0,tab:"Evidence",detail:"Upload the SOW, requirements, approvals, or other project evidence."},
   {label:"Capture a client conversation",done:counts.meetings>0,tab:"Meetings",detail:"Paste, upload, or capture a meeting transcript and let ConsultationPath suggest changes."},

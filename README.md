@@ -63,7 +63,7 @@ Every object may connect to one or more other objects, and every inferred relati
 
 ## ConsultationPath
 
-ConsultationPath is a separately branded product built on the shared project-memory architecture. Its initial market is independent implementation consultants, beginning with Workday Adaptive Planning / FP&A engagements.
+ConsultationPath is a separately branded product built on the shared project-memory architecture. Its market is independent implementation consultants and small consulting firms on any platform (Salesforce, NetSuite, HubSpot, ServiceNow, ERP, CRM, custom builds and similar). Workstreams are defined per engagement; new engagements start with platform-neutral defaults the consultant can rename or extend.
 
 The product is intentionally being designed as a low-touch SaaS: self-serve onboarding, evidence ingestion, AI-assisted review, scope/milestone intelligence, and in-product feedback should minimize founder-led setup and support.
 

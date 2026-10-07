@@ -3,15 +3,27 @@
 ## Objective
 Build ConsultationPath into a low-touch SaaS for independent consultants and small consulting firms that can eventually exceed $500K in annual recurring revenue without requiring founder-led onboarding, implementation, or ongoing account management.
 
-## Initial wedge
-Start with independent Workday Adaptive Planning / FP&A implementation consultants because the workflow is concrete, the project history is complex, and we have direct access to a real-world tester.
+## Target customer
+ConsultationPath is for independent consultants and small firms who run implementation-style engagements on any platform: Salesforce, NetSuite, HubSpot, ServiceNow, ERP, HCM, CRM, finance systems, custom builds, and similar work. The product is platform-neutral; workstreams are defined per engagement, not hardcoded to any vendor.
 
-Longer-term adjacent customers:
-- ERP / FP&A / HCM / CRM implementation consultants
-- Fractional CFOs
-- Finance transformation consultants
-- RevOps and operations consultants
-- Cybersecurity and technology consultants
+The strongest fit is a consultant who:
+- bills roughly $150–$300+ per hour
+- runs multi-week or multi-month engagements against a SOW
+- works with several client stakeholders
+- receives requirements through meetings and email
+- experiences scope creep and client-side delays
+- has to defend why dates or fees changed
+
+Focus without narrowing the product:
+- Keep one product and one data model for every consultant.
+- Lead marketing with a recognizable segment at a time (for example ERP implementers, CRM/Salesforce consultants, fractional CFOs, RevOps consultants) through separate landing pages, examples and ads, without changing the app per segment.
+- The first pilot tester is an implementation consultant; treat his feedback as one implementation profile, not the definition of the market.
+
+Adjacent customers:
+- ERP, CRM, HCM and finance-system implementation consultants
+- Fractional CFOs and finance transformation consultants
+- RevOps, operations and technology consultants
+- Cybersecurity consultants
 - Small professional-services boutiques
 
 ## Core positioning
@@ -36,7 +48,7 @@ Target customer journey:
 1. Self-serve signup.
 2. Create engagement.
 3. Upload SOW / baseline evidence.
-4. Confirm original workstreams and milestones.
+4. Confirm or rename starting workstreams (platform-neutral defaults) and add milestones.
 5. Connect or import meetings and email.
 6. ConsultationPath suggests changes, milestones, dependencies and commitments.
 7. Consultant reviews/accepts recommendations.
@@ -82,3 +94,5 @@ Track:
 Do not add paid infrastructure, subscriptions, third-party services or plan upgrades without Martin's explicit approval.
 
 Prefer free-tier architecture during validation where it does not compromise tester safety or data isolation. Any feature that introduces a recurring or usage-based charge should be surfaced with its expected cost before activation.
+
+Known cost trigger before charging anyone: Vercel's free Hobby plan is limited to non-commercial use, so accepting payment will require moving to a paid Vercel plan (about $20/month at last check). This requires Martin's approval before the first paying customer.
