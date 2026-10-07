@@ -59,3 +59,17 @@ Every object may connect to one or more other objects, and every inferred relati
 5. Add extraction + review queue before facts enter the canonical project graph.
 6. Turn the demo timeline into baseline vs actual vs forecast.
 7. Implement Ask BuildPath with citations back to project evidence.
+
+
+## ConsultationPath
+
+ConsultationPath is a separately branded product built on the shared project-memory architecture. Its initial market is independent implementation consultants, beginning with Workday Adaptive Planning / FP&A engagements.
+
+The product is intentionally being designed as a low-touch SaaS: self-serve onboarding, evidence ingestion, AI-assisted review, scope/milestone intelligence, and in-product feedback should minimize founder-led setup and support.
+
+See:
+- `docs/CONSULTATIONPATH_BUSINESS_STRATEGY.md`
+- `docs/CONSULTATIONPATH_LOW_TOUCH_ROADMAP.md`
+- `docs/CONSULTATIONPATH_SAFE_PILOT.md`
+
+**Cost guardrail:** do not enable paid infrastructure, subscriptions, or usage-based third-party services without explicit owner approval.
