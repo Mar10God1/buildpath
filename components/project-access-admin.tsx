@@ -109,6 +109,6 @@ export function ProjectAccessAdmin({projectId}:{projectId:string}){
       })}
       {!members.length&&<p className="panel-copy">No other members have joined this project yet. Invite a teammate below, then refresh to assign their role and permissions.</p>}
     </div>}
-    <div style={{borderTop:"1px solid #e0e2df",marginTop:18,paddingTop:16}}><h4 style={{margin:"0 0 6px",fontSize:13}}>Invite a project collaborator</h4><p className="panel-copy">Use a project field invite to get the teammate connected. Once they accept, refresh the member list above and assign a broader role such as superintendent, project manager, safety, or finance. Grant only the access they need.</p><FieldAccess projectId={projectId}/></div>
+    <div style={{borderTop:"1px solid #e0e2df",marginTop:18,paddingTop:16}}><h4 style={{margin:"0 0 6px",fontSize:13}}>Invite a project collaborator</h4><p className="panel-copy">Use a project field invite to get the teammate connected. Once they accept, refresh the member list above and assign a broader role such as superintendent, project manager, safety, or finance. Grant only the access they need.</p><FieldAccess projectId={projectId} requireEmail/></div>
   </section>;
 }
