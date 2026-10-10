@@ -228,15 +228,20 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
       {editing === selectedMilestone.id && form(selectedMilestone)}
     </div>}
 
-    {milestones.length > 0 ? <div className={styles.milestoneList}>
-      <div className={styles.listHeading}><strong>Milestone register</strong><span>{milestones.length} recorded</span></div>
+    {milestones.length > 0 ? <details className={styles.milestoneList}>
+      <summary className={styles.listHeading}>
+        <strong>Milestone register</strong>
+        <span>{milestones.length} recorded <span aria-hidden="true" className={styles.registerChevron}>⌄</span></span>
+      </summary>
+      <div className={styles.listContent}>
       {milestones.map(m => {
         const tone = toneOf(m, today);
         return <button type="button" key={m.id} className={styles.listRow} aria-pressed={selected === m.id} onClick={() => { setSelected(selected === m.id ? null : m.id); setEditing(null); }}>
           <span className={styles.rowSymbol} data-tone={tone}>◆</span><strong>{m.title}</strong><span>{labelDate(m.planned)}</span><span className={styles.rowTone} data-tone={tone}>{toneLabel(m, today)}</span>
         </button>;
       })}
-    </div> : <p className={styles.empty}>There are no project milestones yet. Add your first milestone to make the schedule trackable.</p>}
+      </div>
+    </details> : <p className={styles.empty}>There are no project milestones yet. Add your first milestone to make the schedule trackable.</p>}
     {!hasBaseline && <p className={styles.footnote}>A complete baseline is missing. Use Edit baseline to set the project's start and finish dates to measure overall schedule progress.</p>}
     {impactDays > 0 && <p className={styles.footnote}>Schedule exposure: {impactDays} days reported across {reportedImpacts.length} impact events. These are individual records, not necessarily additive or a forecast of project delay.</p>}
   </section>;
