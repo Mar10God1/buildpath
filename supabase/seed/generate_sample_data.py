@@ -627,7 +627,7 @@ for tk in TPL:
         REQ_ID[(tk, key)] = rid
         add("vendor_requirements", id=rid, template_id=TPL[tk], label=label, field_key=key, requirement_type=rtype,
             help_text=None, is_required=True, sort_order=i + 1,
-            options=["LLC", "S Corporation", "C Corporation", "Partnership", "Sole proprietor"] if rtype == "select" else None,
+            options=["LLC", "S Corporation", "C Corporation", "Partnership", "Sole proprietor"] if rtype == "select" else [],
             document_type=dtype, expires=expires, source="system" if key in dict((b[0], 1) for b in BASE_REQS) else "project")
 
 # vendor: key -> (company, legal, dba, type, ein, classification, contact person, address, city, zip, pay method, pay status, compliance, notes)
