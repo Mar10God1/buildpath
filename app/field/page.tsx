@@ -22,6 +22,8 @@ const types=[
 
 export default function FieldCapturePage(){
  const[project,setProject]=useState<Project|null>(null);
+ const[canSubmit,setCanSubmit]=useState(false);
+ const[checkingAccess,setCheckingAccess]=useState(true);
  const[captures,setCaptures]=useState<Capture[]>([]);
  const[type,setType]=useState<string>("progress");
  const[file,setFile]=useState<File|null>(null);
@@ -44,6 +46,9 @@ export default function FieldCapturePage(){
   const pr=await s.from("projects").select("id,name,city,state").order("created_at",{ascending:false});
   const list=(pr.data||[]) as Project[];const p=list.find(x=>x.id===wanted)||list[0];
   if(!p){window.location.href="/setup";return}setProject(p);
+  const permission=await s.rpc("project_permission_summary",{target_project:p.id});
+  setCanSubmit(Boolean((permission.data as {submit_field?:boolean}|null)?.submit_field));
+  setCheckingAccess(false);
   const cr=await s.from("field_submissions").select("id,submission_type,title,notes,media_type,amount,vendor_name,processing_status,created_at").eq("project_id",p.id).order("created_at",{ascending:false}).limit(8);
   if(!cr.error)setCaptures((cr.data||[]) as Capture[]);
  }
@@ -90,7 +95,7 @@ export default function FieldCapturePage(){
  }
 
  async function submit(){
-  if(!project)return;
+  if(!project||!canSubmit)return;
   if(!file&&!notes.trim()&&!title.trim()){setMsg("Add a photo, file, voice recording, or note first.");return}
   setBusy(true);setMsg("");const s=createClient();const auth=await s.auth.getUser();const user=auth.data.user;
   const location=shareLocation?await currentLocation():null;
@@ -129,7 +134,8 @@ export default function FieldCapturePage(){
   setTitle("");setNotes("");setAmount("");setVendor("");setFile(null);setShareLocation(false);setMsg(processingMessage);setBusy(false);await load();
  }
 
- if(!project)return <main className="field-shell"><div className="field-loading">Loading field capture…</div></main>;
+ if(!project||checkingAccess)return <main className="field-shell"><div className="field-loading">Loading field capture…</div></main>;
+ if(!canSubmit)return <main className="field-shell"><header className="field-top"><BuildPathLogo/><a href={"/?project="+project.id}>Project ↗</a></header><section className="capture-card"><h2>Field reporting access required</h2><p>An administrator can enable “Submit reports from the field” for your project role. No capture was sent.</p></section></main>;
  const selected=types.find(x=>x.key===type)||types[0];
  return <main className="field-shell">
   <header className="field-top"><BuildPathLogo/><a href={"/?project="+project.id}>Project ↗</a></header>
