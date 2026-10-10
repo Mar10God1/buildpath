@@ -71,7 +71,7 @@ const toneLabel = (m: Milestone, today: string) => {
   return "Upcoming";
 };
 
-export function ProjectScheduleTimeline({ project, events, refresh, canEdit = true, visibleCategories = null }: { project: Project; events: Event[]; refresh: () => void; canEdit?: boolean; visibleCategories?: EventCategory[] | null }) {
+export function ProjectScheduleTimeline({ project, events, refresh, canEdit = true, visibleCategories = null, focusEventId = null, onSelectEvent }: { project: Project; events: Event[]; refresh: () => void; canEdit?: boolean; visibleCategories?: EventCategory[] | null; focusEventId?: string | null; onSelectEvent?: (id: string | null) => void }) {
   // Category filtering only changes what is plotted and listed. Schedule health,
   // milestone counts and disruption totals always reflect the full project record.
   const isFiltered = Boolean(visibleCategories && visibleCategories.length);
@@ -362,6 +362,9 @@ export function ProjectScheduleTimeline({ project, events, refresh, canEdit = tr
           </div>}
           {monthTicks.map(t => <div key={t.key} className={styles.monthTick} data-year={t.year} style={{ left: t.pos + "%", height: plotHeight }}><span>{t.label}</span></div>)}
           {rows.map((r, ri) => <div key={r.category} className={styles.rowBand} data-odd={ri % 2 === 1} style={{ top: AXIS_H + rowTops[ri], height: r.height }} />)}
+          {rows.flatMap(r => r.items).filter(it => ["setback", "weather", "injury"].includes(it.category) || it.event.id === focusEventId).map(it =>
+            <div key={"hl-" + it.event.id} className={styles.highlight} data-category={it.category} data-focus={it.event.id === focusEventId}
+              style={{ left: it.startPos + "%", width: "max(6px, " + Math.max(0.5, it.endPos - it.startPos) + "%)", top: AXIS_H, height: plotHeight - AXIS_H }} />)}
           {todayX !== null && <div className={styles.todayLine} style={{ left: todayX + "%", height: plotHeight }}><b>Today</b></div>}
           {rows.map((r, ri) => r.items.map(item => {
             const { event, milestone, category } = item;
@@ -375,7 +378,7 @@ export function ProjectScheduleTimeline({ project, events, refresh, canEdit = tr
               aria-label={categoryName[category] + ": " + event.title + ", " + dateText + (impact ? ", " + impact + " days reported impact" : "")}
               style={{ left: item.startPos + "%", top, ...(item.isRange ? { width: "max(10px, " + (item.endPos - item.startPos) + "%)" } : {}) }}
               onMouseEnter={() => setHovered(event.id)} onFocus={() => setHovered(event.id)} onBlur={() => setHovered(null)}
-              onClick={() => { setSelected(selected === event.id ? null : event.id); setEditing(null); }}>
+              onClick={() => { const next = selected === event.id ? null : event.id; setSelected(next); setEditing(null); onSelectEvent?.(next); }}>
               {milestone && <span className={styles.markLabel}>{event.title}</span>}
               {impact > 0 && <span className={styles.impactTag}>+{impact}d</span>}
             </button>;

@@ -99,20 +99,19 @@
 .rowBand[data-odd="true"]{background:rgba(0,0,0,.012)}
 .todayLine{position:absolute;top:0;border-left:2px solid #ea761c;z-index:2;pointer-events:none}
 .todayLine b{position:absolute;top:6px;left:-1px;transform:translateX(-50%);background:#ea761c;color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:999px;white-space:nowrap}
-.mark{position:absolute;z-index:3;width:12px;height:12px;padding:0;border:2px solid #fff;border-radius:50%;background:var(--c);box-shadow:0 0 0 1px rgba(0,0,0,.12);transform:translate(-50%,-50%);cursor:pointer}
-.mark[data-range="true"]{height:8px;border-radius:5px;border-width:1px;transform:translate(0,-50%);opacity:.9}
-.mark:hover,.mark:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 30%,transparent);outline:none;z-index:5}
-.mark[aria-pressed="true"]{box-shadow:0 0 0 3px #fff,0 0 0 5px var(--orange);z-index:5}
-.mark[data-milestone="true"]{width:16px;height:16px;border:0;background:transparent;box-shadow:none}
-.mark[data-milestone="true"]:before{content:"";position:absolute;inset:2px;background:var(--c);border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.15);transform:rotate(45deg);border-radius:2px}
-.mark[data-milestone="true"][aria-pressed="true"]{box-shadow:none}
-.mark[data-milestone="true"][aria-pressed="true"]:before{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--orange)}
+.mark{position:absolute;z-index:3;width:14px;height:16px;padding:0;border:0;border-left:3px solid var(--c);border-radius:3px;background:color-mix(in srgb,var(--c) 26%,#fff);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 35%,transparent);transform:translate(0,-50%);cursor:pointer}
+.mark[data-range="true"]{background:color-mix(in srgb,var(--c) 30%,#fff)}
+.mark:hover,.mark:focus-visible{background:color-mix(in srgb,var(--c) 45%,#fff);outline:none;z-index:5}
+.mark[aria-pressed="true"]{background:var(--c);box-shadow:0 0 0 2px #fff,0 0 0 4px var(--orange);z-index:5}
+.mark[data-milestone="true"]{border-left-width:4px}
 .chart .mark[data-tone="done"]{--c:var(--green)}
 .chart .mark[data-tone="late"]{--c:var(--red)}
 .chart .mark[data-tone="next"]{--c:#e7a01d}
 .chart .mark[data-tone="planned"],.chart .mark[data-tone="unknown"]{--c:#c9922a}
 .markLabel{position:absolute;left:calc(100% + 6px);top:50%;transform:translateY(-50%);white-space:nowrap;font-size:10px;font-weight:700;color:#3d4448;pointer-events:none}
 .mark[data-flip="true"] .markLabel{left:auto;right:calc(100% + 6px)}
+.highlight{position:absolute;z-index:1;pointer-events:none;background:color-mix(in srgb,var(--c) 11%,transparent);border-left:1px solid color-mix(in srgb,var(--c) 40%,transparent)}
+.highlight[data-focus="true"]{background:color-mix(in srgb,var(--c) 22%,transparent);border-left:2px solid var(--c)}
 .impactTag{position:absolute;left:calc(100% + 4px);top:50%;transform:translateY(-50%);font-size:9px;font-weight:800;color:#a24f1d;background:#ffeadb;border-radius:3px;padding:0 3px;line-height:13px;white-space:nowrap;pointer-events:none}
 .mark[data-range="true"] .mark[data-flip="true"] .markLabel{left:auto;right:calc(100% + 6px)}
 .impactTag{left:calc(100% + 4px)}
