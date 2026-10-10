@@ -11,12 +11,12 @@ const generic =
 export function getProjectVisual(projectType?: string | null): ProjectVisual {
   const type=(projectType||"").toLowerCase();
 
-  if(type.includes("residential")||type.includes("multifamily")||type.includes("apartment")||type.includes("housing")){
+  if(type.includes("residential")||type.includes("remodel")||type.includes("addition")||type.includes("multifamily")||type.includes("apartment")||type.includes("housing")){
     return {
       image:"https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1800&q=85",
-      eyebrow:"RESIDENTIAL CONSTRUCTION",
-      headline:"Keep every home-building milestone connected.",
-      subhead:"Track the people, documents, schedule, cost, and decisions shaping this residential project."
+      eyebrow:"RESIDENTIAL JOB",
+      headline:"Build the house. BuildPath handles the paperwork.",
+      subhead:"Photos and voice notes from the site become daily logs, change orders and a clear record of every decision."
     };
   }
   if(type.includes("industrial")||type.includes("warehouse")||type.includes("manufactur")||type.includes("distribution")){
@@ -77,8 +77,8 @@ export function getProjectVisual(projectType?: string | null): ProjectVisual {
   }
   return {
     image:generic,
-    eyebrow:"CONSTRUCTION PROJECT INTELLIGENCE",
-    headline:"Connect every part of the build.",
-    subhead:"Projects, documents, vendors, schedule, cost, and decisions — all in one connected project record."
+    eyebrow:"YOUR JOB RECORD",
+    headline:"Less paperwork. More building.",
+    subhead:"Field photos, voice notes, receipts and client requests turn into daily logs, change orders and one clear job record."
   };
 }

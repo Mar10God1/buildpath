@@ -21,7 +21,7 @@ const meta:Record<ModuleKey,{label:string;icon:string}>={
  home:{label:"Home",icon:"⌂"},timeline:{label:"Timeline",icon:"◷"},documents:{label:"Documents",icon:"▤"},ask:{label:"Ask BuildPath",icon:"?"},field_capture:{label:"Field Capture",icon:"＋"},
  schedule:{label:"Schedule",icon:"▣"},cost:{label:"Cost",icon:"$"},vendors:{label:"Vendors & Subs",icon:"♟"},selections:{label:"Selections",icon:"◇"},
  inspections:{label:"Inspections",icon:"✓"},rfis:{label:"RFIs",icon:"?"},submittals:{label:"Submittals",icon:"▧"},change_orders:{label:"Change Orders",icon:"△"},
- daily_reports:{label:"Daily Reports",icon:"☷"},compliance:{label:"Compliance",icon:"⚑"},procurement:{label:"Procurement",icon:"⇄"},
+ daily_reports:{label:"Daily Logs",icon:"☷"},compliance:{label:"Compliance",icon:"⚑"},procurement:{label:"Procurement",icon:"⇄"},
  safety:{label:"Safety",icon:"⚠"},commissioning:{label:"Commissioning",icon:"◎"},people:{label:"People & Companies",icon:"♙"},project_data:{label:"Project Data",icon:"⚙"}
 };
 
@@ -51,7 +51,9 @@ export function buildWorkspace(p:AdaptiveProject,reqs:ProjectRequirement[]=[],pr
  push(m,"timeline","visible",95,"Connected project history");
  push(m,"documents","visible",94,"Evidence is the source of project truth");
  push(m,"ask","visible",93,"Project intelligence");
- push(m,"field_capture","available",70,"Fast mobile field evidence capture");
+ push(m,"field_capture","visible",90,"Photos, voice notes and receipts from the site");
+ push(m,"daily_reports","visible",86,"BuildPath writes the daily log from field captures");
+ push(m,"change_orders","visible",87,"Draft change orders from client requests");
  push(m,"project_data","visible",20,"Project configuration");
  push(m,"people","available",25,"Project relationships");
 
@@ -61,6 +63,21 @@ export function buildWorkspace(p:AdaptiveProject,reqs:ProjectRequirement[]=[],pr
  if(!["planning","design"].includes(stage))push(m,"schedule","visible",88,"Active project execution");
  else push(m,"schedule","available",55,"Useful as the project moves into execution");
 
+ if(role==="builder"){
+  push(m,"field_capture","visible",99,"Capture the day from the site");
+  push(m,"change_orders","visible",97,"Get extras approved before you build them");
+  push(m,"daily_reports","visible",96,"Daily logs written for you");
+  push(m,"cost","visible",92,"Contract plus approved changes");
+  push(m,"schedule","visible",88,"Job milestones");
+  push(m,"vendors","visible",70,"Subs and suppliers");
+ }
+ if(role==="office_manager"){
+  push(m,"change_orders","visible",98,"Price, send and track client approvals");
+  push(m,"cost","visible",96,"Contract plus approved changes");
+  push(m,"daily_reports","visible",94,"Review and finalize the field's daily logs");
+  push(m,"vendors","visible",90,"Sub paperwork and payments");
+  push(m,"documents","visible",95,"Contracts, invoices and permits");
+ }
  if(role.includes("owner")||role.includes("developer")){
   push(m,"cost","visible",92,"Owners need budget and forecast visibility");
   push(m,"schedule","visible",90,"Owners need milestone visibility");
@@ -73,7 +90,7 @@ export function buildWorkspace(p:AdaptiveProject,reqs:ProjectRequirement[]=[],pr
  }
  if(role.includes("superintendent")||role.includes("field")){
   push(m,"field_capture","visible",99,"Primary mobile field workflow");
-  ["schedule","daily_reports","inspections","rfis","safety","procurement"].forEach((k,i)=>push(m,k as ModuleKey,"visible",94-i,"Field execution priority"));
+  (role==="field_lead"?["daily_reports","change_orders","schedule","inspections"]:["schedule","daily_reports","inspections","rfis","safety","procurement"]).forEach((k,i)=>push(m,k as ModuleKey,"visible",94-i,"Field execution priority"));
   push(m,"cost","available",35,"Cost is secondary for field users");
  }
  if(role.includes("finance")||role.includes("controller")||role.includes("cfo")){
@@ -102,7 +119,7 @@ export function buildWorkspace(p:AdaptiveProject,reqs:ProjectRequirement[]=[],pr
   push(m,"selections","visible",84,"Residential projects often depend on owner selections");
   push(m,"inspections","visible",80,"Inspection milestones");
   push(m,"vendors","visible",76,"Trade coordination");
-  push(m,"daily_reports",complexity==="simple"?"hidden":"available",38,"Only useful on larger residential projects");
+  push(m,"change_orders","visible",89,"Client-requested extras and upgrades");
   push(m,"submittals",complexity==="complex"?"visible":"available",42,"More relevant on complex residential work");
  }
  if(type.includes("commercial")||type.includes("office")||type.includes("retail")){
@@ -149,7 +166,7 @@ export function buildWorkspace(p:AdaptiveProject,reqs:ProjectRequirement[]=[],pr
  }
 
  if(complexity==="simple"){
-  ["rfis","submittals","daily_reports","compliance","procurement","safety","commissioning"].forEach(k=>{
+  ["rfis","submittals","compliance","procurement","safety","commissioning"].forEach(k=>{
    const x=m.get(k as ModuleKey); if(!x||x.priority<80)push(m,k as ModuleKey,"hidden",1,"Hidden to keep a simple project simple");
   });
  }

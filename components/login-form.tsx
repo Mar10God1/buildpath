@@ -44,7 +44,7 @@ export function LoginForm() {
         <div className="auth-card">
           <span className="setup-kicker">CONSTRUCTION PROJECT INTELLIGENCE</span>
           <h1>{mode === "login" ? "Welcome back" : "Create your account"}</h1>
-          <p>Access your projects, documents, vendors, schedule, cost, and project intelligence.</p>
+          <p>Your jobs, daily logs, change orders and field photos, all in one place.</p>
           <form className="auth-form" onSubmit={submit}>
             <label>Email<input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" /></label>
             <label>Password<input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} /></label>

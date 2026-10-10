@@ -28,6 +28,8 @@ function moduleAllowed(key:ModuleKey, permissions:PermissionSet){
  if(key==="project_data")return permissions.manage_project;
  if(key==="vendors")return permissions.manage_vendors;
  if(key==="field_capture")return permissions.submit_field;
+ if(key==="change_orders")return permissions.view_costs;
+ if(key==="daily_reports")return permissions.view_field;
  return permissions.view_project;
 }
 function moduleSection(key:ModuleKey){
@@ -41,6 +43,9 @@ function moduleSection(key:ModuleKey){
  if(key==="project_data")return"Project Data";
  return "Adaptive:"+key;
 }
+
+// Modules that have their own full page.
+const PAGE_LINKS:Partial<Record<ModuleKey,string>>={vendors:"/vendors",change_orders:"/change-orders",daily_reports:"/daily-logs"};
 
 function money(v:number|null|undefined){if(v==null)return"Not set";return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(v)}
 function fmtDate(v:string|null|undefined){if(!v)return"Not set";const d=new Date(v.includes("T")?v:v+"T12:00:00");return d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}
@@ -78,7 +83,7 @@ export function Workspace(){
  useEffect(()=>{(async()=>{const s=createClient();const auth=await s.auth.getUser();if(!auth.data.user){window.location.href="/login";return}const r=await s.from("projects").select("id,organization_id,name,address,city,state,project_type,baseline_start,target_finish,original_budget,status,hero_image_url,project_stage,user_role,construction_mode,funding_type,complexity_override").order("created_at",{ascending:false});if(r.error){setError(r.error.message);setLoading(false);return}const list=(r.data||[]) as Project[];setProjects(list);if(!list.length){window.location.href="/setup";return}const wanted=new URLSearchParams(window.location.search).get("project");await load(list.find(p=>p.id===wanted)||list[0])})()},[]);
 
  async function logout(){await createClient().auth.signOut();window.location.href="/login"}
- if(loading&&!project)return <main className="setup-shell"><section className="setup-card"><p>Loading your BuildPath project…</p></section></main>;
+ if(loading&&!project)return <main className="setup-shell"><section className="setup-card"><p>Loading your job…</p></section></main>;
  if(!project)return null;
  const location=[project.city,project.state].filter(Boolean).join(", ");
  const visual=getProjectVisual(project.project_type);
@@ -89,12 +94,12 @@ export function Workspace(){
    <BuildPathLogo/>
    <div className="switcher-wrap">
     <button className="project-switcher" onClick={()=>setSwitcher(!switcher)}><span><strong>{project.name}</strong><small>{location||project.project_type||"Project"}</small></span><span>⌄</span></button>
-    {switcher&&<div className="switcher-menu">{projects.map(p=><button key={p.id} className={p.id===project.id?"selected":""} onClick={()=>{setSwitcher(false);load(p)}}>{p.name}<small>{[p.city,p.state].filter(Boolean).join(", ")}</small></button>)}<a href="/setup">＋ Add project</a></div>}
+    {switcher&&<div className="switcher-menu">{projects.map(p=><button key={p.id} className={p.id===project.id?"selected":""} onClick={()=>{setSwitcher(false);load(p)}}>{p.name}<small>{[p.city,p.state].filter(Boolean).join(", ")}</small></button>)}<a href="/setup">＋ New job</a></div>}
    </div>
    <nav>
  {adaptiveModules.filter(m=>m.visibility==="visible"&&moduleAllowed(m.key,access)).map(m=>
-  m.key==="vendors"
-   ?<a key={m.key} className="side-link" href={"/vendors?project="+project.id}><span className="nav-icon">{m.icon}</span>{m.label}</a>
+  PAGE_LINKS[m.key]
+   ?<a key={m.key} className="side-link" href={PAGE_LINKS[m.key]+"?project="+project.id}><span className="nav-icon">{m.icon}</span>{m.label}</a>
    :m.key==="field_capture"
     ?<a key={m.key} className="side-link field-nav" href={"/field?project="+project.id}><span className="nav-icon">{m.icon}</span>{m.label}</a>
     :<button key={m.key} className={moduleSection(m.key)===section?"nav-active":""} onClick={()=>setSection(moduleSection(m.key))}><span className="nav-icon">{m.icon}</span>{m.label}{m.key==="ask"&&<small className="beta-badge">BETA</small>}</button>
@@ -102,11 +107,11 @@ export function Workspace(){
  {adaptiveModules.some(m=>m.visibility==="available")&&<><div className="nav-divider"/><button className="muted-nav" onClick={()=>setSection("Project Data")}><span className="nav-icon">＋</span>Add to Project <small>{adaptiveModules.filter(m=>m.visibility==="available").length}</small></button></>}
 {access.manage_access&&<button className={section==="Access & Roles"?"nav-active":""} onClick={()=>setSection("Access & Roles")}><span className="nav-icon">♙</span>Access &amp; Roles</button>}
 </nav>
-   <div className="sidebar-bottom"><span className="sidebar-icon">▦</span><span><strong>Project memory</strong><small>{evidence.length} evidence · {events.length} events</small></span><button className="logout-mini" onClick={logout}>Log out</button></div>
+   <div className="sidebar-bottom"><span className="sidebar-icon">▦</span><span><strong>Job record</strong><small>{evidence.length} items · {events.length} events</small></span><button className="logout-mini" onClick={logout}>Log out</button></div>
   </aside>
   <main className="main">
-   <div className="global-topbar"><div className="global-search">⌕ <span>Search projects, documents, subs, or ask anything...</span></div><div className="global-user"><span className="notify-dot">●</span><span className="user-avatar">MG</span><span><strong>BuildPath</strong><small>Project workspace</small></span></div></div>
-   <header className="topbar" style={{backgroundImage:"linear-gradient(90deg,rgba(10,11,12,.88),rgba(10,11,12,.54) 55%,rgba(10,11,12,.35)),url("+JSON.stringify(heroImage||visual.image)+")"}}><div><p className="eyebrow">{visual.eyebrow}</p><h1>{visual.headline}</h1><p>{visual.subhead}</p></div></header><section className="project-ribbon"><div><small>Project</small><strong>{project.name}</strong></div><div className="project-ribbon-meta"><span>{location||"Location not set"}</span><span>{project.project_type||"Project"}</span><span>{money(project.original_budget)}</span></div><button onClick={()=>setSection("Project Data")}>View Project →</button></section>
+   <div className="global-topbar"><div className="global-search">⌕ <span>Search jobs, documents, subs, or ask anything...</span></div><div className="global-user"><span className="notify-dot">●</span><span className="user-avatar">MG</span><span><strong>BuildPath</strong><small>Project workspace</small></span></div></div>
+   <header className="topbar" style={{backgroundImage:"linear-gradient(90deg,rgba(10,11,12,.88),rgba(10,11,12,.54) 55%,rgba(10,11,12,.35)),url("+JSON.stringify(heroImage||visual.image)+")"}}><div><p className="eyebrow">{visual.eyebrow}</p><h1>{visual.headline}</h1><p>{visual.subhead}</p></div></header><section className="project-ribbon"><div><small>Job</small><strong>{project.name}</strong></div><div className="project-ribbon-meta"><span>{location||"Location not set"}</span><span>{project.project_type||"Project"}</span><span>{money(project.original_budget)}</span></div><button onClick={()=>setSection("Project Data")}>Job details →</button></section>
    {error&&<div className="form-message">{error}</div>}
    {section==="Overview"&&<Overview project={project} companies={companies} people={people} evidence={evidence} events={events} vendors={vendors} visibleModules={adaptiveModules.filter(m=>m.visibility==="visible"&&moduleAllowed(m.key,access))} go={setSection}/>}
    {section==="Timeline"&&access.view_timeline&&<Timeline project={project} events={events} canEdit={access.edit_timeline} refresh={()=>load(project)}/>}
@@ -115,6 +120,7 @@ export function Workspace(){
    {section==="Documents"&&access.view_documents&&<Documents project={project} evidence={evidence} canUpload={access.upload_documents} refresh={()=>load(project)}/>}
    {section==="Costs"&&access.view_costs&&<Costs project={project} events={events}/>}
    {section==="Schedule"&&access.view_timeline&&<Schedule project={project} events={events}/>}
+   {section.startsWith("Adaptive:")&&moduleAllowed(section.slice(9) as ModuleKey,access)&&<AdaptivePlaceholder moduleKey={section.slice(9) as ModuleKey} project={adaptiveProject} events={events} evidence={evidence}/>}
    {section==="Project Data"&&access.manage_project&&<><AdaptiveSettings project={adaptiveProject} requirements={requirements} modules={adaptiveModules} companyCount={companies.length} documentCount={evidence.length} refresh={()=>load(project)}/><ProjectData project={project} companies={companies} refresh={()=>load(project)}/></>}
   {section==="Access & Roles"&&access.manage_access&&<ProjectAccessAdmin projectId={project.id}/>}
   </main>
@@ -153,7 +159,7 @@ function Overview({project,companies,people,evidence,events,vendors,visibleModul
   <section className="panel dashboard-ask">
    <div className="panel-title"><h3><span className="spark">✦</span> Ask BuildPath <small className="beta-inline">BETA</small></h3></div>
    <button className="question-input" onClick={()=>go("Ask BuildPath")}>Ask a question about your project, documents, schedule, or costs… <b>→</b></button>
-   <div className="question-presets"><button onClick={()=>go("Ask BuildPath")}>What’s driving schedule risk?</button><button onClick={()=>go("Ask BuildPath")}>Show pending approvals</button><button onClick={()=>go("Ask BuildPath")}>Summarize project activity</button><button onClick={()=>go("Ask BuildPath")}>Which subs need attention?</button></div>
+   <div className="question-presets"><button onClick={()=>go("Ask BuildPath")}>Why is this job behind?</button><button onClick={()=>go("Ask BuildPath")}>Which change orders are waiting on the client?</button><button onClick={()=>go("Ask BuildPath")}>Summarize project activity</button><button onClick={()=>go("Ask BuildPath")}>Which subs need attention?</button></div>
   </section>
 
   {show("schedule")&&<section className="panel dashboard-card schedule-card">
@@ -176,7 +182,7 @@ function Overview({project,companies,people,evidence,events,vendors,visibleModul
 
   <section className="panel adaptive-summary">
    <div className="panel-title"><div><p className="eyebrow">TAILORED TO THIS JOB</p><h3>Priority workflows</h3></div><button className="text-button" onClick={()=>go("Project Data")}>Customize →</button></div>
-   <div className="adaptive-tags">{visibleModules.filter(m=>!["home","timeline","documents","ask","schedule","cost","vendors","project_data"].includes(m.key)).slice(0,6).map(m=><button key={m.key} onClick={()=>go(moduleSection(m.key))}><b>{m.icon} {m.label}</b><small>{m.reason}</small></button>)}</div>
+   <div className="adaptive-tags">{visibleModules.filter(m=>!["home","timeline","documents","ask","schedule","cost","vendors","project_data"].includes(m.key)).slice(0,6).map(m=>PAGE_LINKS[m.key]?<a key={m.key} href={PAGE_LINKS[m.key]+"?project="+project.id}><b>{m.icon} {m.label}</b><small>{m.reason}</small></a>:m.key==="field_capture"?<a key={m.key} href={"/field?project="+project.id}><b>{m.icon} {m.label}</b><small>{m.reason}</small></a>:<button key={m.key} onClick={()=>go(moduleSection(m.key))}><b>{m.icon} {m.label}</b><small>{m.reason}</small></button>)}</div>
   </section>
 
   <section className="panel dashboard-list">
