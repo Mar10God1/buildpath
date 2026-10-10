@@ -20,7 +20,7 @@ function categoryForEvent(e: Event): EventCategory {
   if (type === "milestone") return "milestone";
   if (/(injury|injur|accident|safety|incident)/.test(type) || /\b(work(er|place)? injury|injured worker|jobsite accident|workplace accident|lost.time incident)\b/.test(label)) return "injury";
   if (/(weather|storm|rain|snow|flood)/.test(type) || /\b(weather delay|storm delay|heavy rain|snow storm|flooding)\b/.test(label)) return "weather";
-  if (Number(e.schedule_impact_days) > 0 || /(delay|setback|disruption|blocker|risk|issue)/.test(type)) return "setback";
+  if (Number(e.schedule_impact_days) > 0 || /(delay|setback|disruption|blocker|risk|issue)/.test(type) || /\b(delayed|delay|behind schedule|schedule slip|setback|rework|blocked)\b/.test(label)) return "setback";
   if (/(change|rfi)/.test(type)) return "change";
   if (/(decision|approval)/.test(type)) return "decision";
   if (/(field|inspection|work)/.test(type)) return "field";
@@ -37,7 +37,9 @@ const categoryGlyph: Record<EventCategory, string> = {
   decision: "✓", field: "▤", meeting: "◉", general: "•",
 };
 function isDisruption(e: Event, kind: EventCategory) {
-  return kind === "weather" || kind === "injury" || kind === "setback";
+  if (kind === "injury" || kind === "setback") return true;
+  // Weather alone isn't a schedule delay: flag only recorded disruptions.
+  return kind === "weather" && (Number(e.schedule_impact_days) > 0 || /delay|disruption|setback/.test(e.event_type.toLowerCase() + " " + e.title.toLowerCase()));
 }
 
 
@@ -136,7 +138,7 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
     summary = "Your project baseline exists, but no milestones are available to assess schedule adherence.";
   }
 
-  const allDates = [baselineStart, baselineFinish, today || null, ...plottedEvents.map(item => item.date)].filter((x): x is string => !!x).map(day);
+  const allDates = [baselineStart, baselineFinish, today || null, ...plottedEvents.flatMap(item => [item.date, item.milestone ? null : datePart(item.event.end_at)])].filter((x): x is string => !!x).map(day);
   const fallbackToday = today ? day(today) : day(localToday());
   const rangeStart = allDates.length ? Math.min(...allDates) : fallbackToday - 30;
   const rangeEnd = allDates.length ? Math.max(...allDates) : fallbackToday + 30;
@@ -282,12 +284,12 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
       <div><span>Baseline</span><strong>{baselineStart ? shortDate(baselineStart) : "Not set"} → {baselineFinish ? shortDate(baselineFinish) : "Not set"}</strong><small>{elapsed !== null ? elapsed + "% of baseline time elapsed" : "Use Edit baseline to set both dates"}</small></div>
       <div><span>Milestones</span><strong>{completed} / {milestones.length} completed</strong><small>{overdue.length} overdue · {lateDone.length} completed late</small></div>
     </div>
-    {(disruptions.length > 0 || weatherCount || safetyCount || setbackCount) && <div className={styles.disruptionOverview} aria-label="Recorded disruptions">
-      <strong><span aria-hidden="true">⚑</span> Recorded disruptions</strong>
-      <span><b>{weatherCount}</b> weather</span>
-      <span><b>{safetyCount}</b> safety / injury</span>
+    {(disruptions.length > 0 || weatherCount || safetyCount || setbackCount) && <div className={styles.disruptionOverview} aria-label="Weather, safety, and schedule events">
+      <strong><span aria-hidden="true">⚑</span> Disruptions & incidents</strong>
+      <span><b>{weatherCount}</b> weather events</span>
+      <span><b>{safetyCount}</b> safety / injury reports</span>
       <span><b>{setbackCount}</b> other setbacks</span>
-      <small>Flags mark recorded events; bands show only documented event date ranges.</small>
+      <small>Flags show disruptions and incidents. Bands span only dates explicitly recorded; weather events without reported disruption are not treated as delays.</small>
     </div>}
 
     {editingBaseline && <form className={styles.editor} onSubmit={saveBaseline}>
