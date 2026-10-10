@@ -70,7 +70,7 @@ const toneLabel = (m: Milestone, today: string) => {
   return "Upcoming";
 };
 
-export function ProjectScheduleTimeline({ project, events, refresh }: { project: Project; events: Event[]; refresh: () => void }) {
+export function ProjectScheduleTimeline({ project, events, refresh, canEdit = true }: { project: Project; events: Event[]; refresh: () => void; canEdit?: boolean }) {
   const [today, setToday] = useState("");
   const [adding, setAdding] = useState(false);
   const [editingBaseline, setEditingBaseline] = useState(false);
@@ -166,7 +166,7 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
 
   async function saveMilestone(e: FormEvent<HTMLFormElement>, existing?: Milestone) {
     e.preventDefault();
-    if (saving) return;
+    if (saving || !canEdit) return;
     const f = new FormData(e.currentTarget);
     const title = String(f.get("title") || "").trim();
     const planned = String(f.get("planned") || "");
@@ -190,7 +190,7 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
   }
 
   async function markCompleted(m: Milestone) {
-    if (saving || m.complete) return;
+    if (saving || m.complete || !canEdit) return;
     setSaving(true); setError("");
     const result = await createClient().from("project_events").update({ status: "completed", end_at: localToday() + "T12:00:00" }).eq("id", m.id).eq("project_id", project.id);
     setSaving(false);
@@ -200,7 +200,7 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
 
   async function saveBaseline(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (saving) return;
+    if (saving || !canEdit) return;
     const f = new FormData(e.currentTarget);
     const plannedStart = String(f.get("baselineStart") || "");
     const plannedFinish = String(f.get("baselineFinish") || "");
@@ -218,7 +218,7 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
 
   async function saveHistoryEvent(e: FormEvent<HTMLFormElement>, existing: Event) {
     e.preventDefault();
-    if (saving) return;
+    if (saving || !canEdit) return;
     const f = new FormData(e.currentTarget);
     const title = String(f.get("title") || "").trim();
     const recordedDate = String(f.get("date") || "");
@@ -276,7 +276,7 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
   return <section className={"panel " + styles.root} aria-label="Project schedule timeline">
     <div className={styles.heading}>
       <div><p className="eyebrow">BASELINE VS. ACTUAL</p><h3>Project schedule & event timeline</h3><p className={styles.subhead}>All recorded project events ({events.length}), milestones, today's position, and schedule status. Select any marker for details.</p></div>
-      <div className={styles.headingActions}><button className="secondary-action" onClick={() => { setEditingBaseline(!editingBaseline); setAdding(false); setError(""); }}>{editingBaseline ? "Close baseline" : "Edit baseline"}</button><button className="primary-action" onClick={() => { setAdding(!adding); setEditingBaseline(false); setEditing(null); setError(""); }}>{adding ? "Cancel" : "＋ Add milestone"}</button></div>
+      {canEdit&&<div className={styles.headingActions}><button className="secondary-action" onClick={() => { setEditingBaseline(!editingBaseline); setAdding(false); setError(""); }}>{editingBaseline ? "Close baseline" : "Edit baseline"}</button><button className="primary-action" onClick={() => { setAdding(!adding); setEditingBaseline(false); setEditing(null); setError(""); }}>{adding ? "Cancel" : "＋ Add milestone"}</button></div>}
     </div>
 
     <div className={styles.metrics}>
@@ -292,12 +292,12 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
       <small>Flags show disruptions and incidents. Bands span only dates explicitly recorded; weather events without reported disruption are not treated as delays.</small>
     </div>}
 
-    {editingBaseline && <form className={styles.editor} onSubmit={saveBaseline}>
+    {canEdit&&editingBaseline && <form className={styles.editor} onSubmit={saveBaseline}>
       <label>Baseline start <input type="date" name="baselineStart" required defaultValue={baselineStart || ""} /></label>
       <label>Target finish <input type="date" name="baselineFinish" required defaultValue={baselineFinish || ""} /></label>
       <div className={styles.formActions}><button disabled={saving} className="primary-action">{saving ? "Saving..." : "Save baseline dates"}</button><button type="button" className="secondary-action" onClick={() => setEditingBaseline(false)}>Cancel</button></div>
     </form>}
-    {adding && form()}
+    {canEdit&&adding && form()}
     {error && <div role="alert" className="form-message">{error}</div>}
 
     <div className={styles.legend}><span><i className={styles.legendWeather} />☁ Weather</span><span><i className={styles.legendInjury} />✚ Safety / injury</span><span><i className={styles.legendImpact} />! Setback</span><span><i className={styles.legendChange} />Change</span><span><i className={styles.legendHistory} />Other events</span><span><i className={styles.legendToday} />Today</span><span><i className={styles.legendDone} />Completed</span><span><i className={styles.legendLate} />Behind</span><span><i className={styles.legendNext} />Due soon</span><span><i className={styles.legendPlanned} />Upcoming</span></div>
@@ -362,15 +362,15 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
         </small>
       </div>
       <div className={styles.detailActions}>
-        <button className="secondary-action" type="button" onClick={() => { setEditing(editing === selectedEvent.id ? null : selectedEvent.id); setError(""); }}>{editing === selectedEvent.id ? "Close editor" : "Edit event"}</button>
+        {canEdit&&<button className="secondary-action" type="button" onClick={() => { setEditing(editing === selectedEvent.id ? null : selectedEvent.id); setError(""); }}>{editing === selectedEvent.id ? "Close editor" : "Edit event"}</button>}
       </div>
-      {editing === selectedEvent.id && historyEventForm(selectedEvent)}
+      {canEdit&&editing === selectedEvent.id && historyEventForm(selectedEvent)}
     </div>}
 
     {selectedMilestone && <div className={styles.detail}>
       <div><strong>{selectedMilestone.title}</strong><p>{selectedMilestone.description || "No milestone details recorded."}</p><small>Planned: {labelDate(selectedMilestone.planned)} · Actual: {selectedMilestone.complete ? labelDate(selectedMilestone.actual) : "Pending"} · {toneLabel(selectedMilestone, today)}</small></div>
-      <div className={styles.detailActions}><button type="button" className="secondary-action" onClick={() => setEditing(editing === selectedMilestone.id ? null : selectedMilestone.id)}>{editing === selectedMilestone.id ? "Close editor" : "Edit milestone"}</button>{!selectedMilestone.complete && <button type="button" disabled={saving} className="secondary-action" onClick={() => markCompleted(selectedMilestone)}>Mark completed today</button>}</div>
-      {editing === selectedMilestone.id && form(selectedMilestone)}
+      {canEdit&&<div className={styles.detailActions}><button type="button" className="secondary-action" onClick={() => setEditing(editing === selectedMilestone.id ? null : selectedMilestone.id)}>{editing === selectedMilestone.id ? "Close editor" : "Edit milestone"}</button>{!selectedMilestone.complete && <button type="button" disabled={saving} className="secondary-action" onClick={() => markCompleted(selectedMilestone)}>Mark completed today</button>}</div>}
+      {canEdit&&editing === selectedMilestone.id && form(selectedMilestone)}
     </div>}
 
     {milestones.length > 0 ? <details className={styles.milestoneList}>

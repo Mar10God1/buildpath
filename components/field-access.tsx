@@ -11,7 +11,7 @@ async function sha256(value:string){
  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");
 }
 
-export function FieldAccess({projectId}:{projectId:string}){
+export function FieldAccess({projectId,requireEmail=false}:{projectId:string;requireEmail?:boolean}){
  const[email,setEmail]=useState("");
  const[invites,setInvites]=useState<Invite[]>([]);
  const[link,setLink]=useState("");
@@ -25,7 +25,7 @@ export function FieldAccess({projectId}:{projectId:string}){
  useEffect(()=>{void load()},[projectId]);
 
  async function invite(e:FormEvent){
-  e.preventDefault();setBusy(true);setMsg("");setLink("");
+  e.preventDefault();if(requireEmail&&!email.trim()){setMsg("Enter the recipient email before inviting.");return}setBusy(true);setMsg("");setLink("");
   const s=createClient();const auth=await s.auth.getUser();if(!auth.data.user){setBusy(false);return}
   const token=crypto.randomUUID()+crypto.randomUUID().replaceAll("-","");
   const tokenHash=await sha256(token);
@@ -47,7 +47,7 @@ export function FieldAccess({projectId}:{projectId:string}){
  return <section className="panel page-panel field-access-panel">
   <div className="panel-title"><div><p className="eyebrow">FIELD ACCESS</p><h3>Invite people to capture jobsite intel</h3></div><a className="secondary-action" href={"/field?project="+projectId}>Open Field Capture →</a></div>
   <p className="panel-copy">Field contributors get a capture-first experience for photos, receipts, invoices, incidents, deliveries, safety observations and voice notes—not the full office workspace.</p>
-  <form className="field-invite-form" onSubmit={invite}><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email (optional — leave blank for a shareable link)"/><button className="primary-action" disabled={busy}>{busy?"Creating…":"Create field invite"}</button></form>
+  <form className="field-invite-form" onSubmit={invite}><input type="email" required={requireEmail} value={email} onChange={e=>setEmail(e.target.value)} placeholder={requireEmail?"Teammate email (required)":"Email (optional — leave blank for a shareable link)"}/><button className="primary-action" disabled={busy}>{busy?"Creating…":"Create field invite"}</button></form>
   {msg&&<div className="form-message">{msg}</div>}
   {link&&<div className="invite-link"><strong>Field capture invite</strong><input readOnly value={link}/><button className="primary-action" onClick={()=>navigator.clipboard.writeText(link)}>Copy link</button></div>}
   {invites.length>0&&<div className="field-invite-list">{invites.map(i=><div key={i.id}><span><strong>{i.invited_email||"Shareable field link"}</strong><small>Expires {new Date(i.expires_at).toLocaleDateString()}</small></span><em className={"capture-status "+i.status}>{i.status}</em>{i.status==="pending"&&<button onClick={()=>revoke(i.id)}>Revoke</button>}</div>)}</div>}
