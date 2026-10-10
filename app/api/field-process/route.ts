@@ -27,8 +27,14 @@ function parseScheduleImpact(text:string){
 }
 function eventType(type:string,text:string){
   const t=text.toLowerCase();
+  // Preserve the reporter's explicit capture category wherever possible.
+  // Classification informs timeline symbols; it is not proof of impact or causation.
+  if(type==="weather")return"weather_delay";
+  if(type==="delay")return"delay";
+  if(/\b(injur(?:y|ies|ed)|worker hurt|lost.time accident)\b/.test(t))return"work_injury";
   if(type==="safety"||/safety|osha|hazard|unsafe|near miss/.test(t))return"safety";
-  if(type==="incident"||/incident|damage|injur|accident|leak|break/.test(t))return"incident";
+  if(type==="incident"||/incident|damage|accident|leak|break/.test(t))return"incident";
+  if(/\b(weather delay|rain delay|storm delay|heavy rain|storm stoppage)\b/.test(t))return"weather_delay";
   if(type==="delivery"||/deliver|shipment|material arrived/.test(t))return"delivery";
   if(type==="progress"||/installed|completed|finished|progress/.test(t))return"progress";
   if(type==="receipt"||type==="invoice")return"cost";
@@ -41,7 +47,7 @@ function buildCandidates(input:{
   const text=[input.title,input.notes,input.transcript].filter(Boolean).join("\n").trim();
   const title=input.title||({
     progress:"Field progress update",receipt:"Field receipt",invoice:"Field invoice",incident:"Field incident",
-    safety:"Safety observation",delivery:"Delivery update",voice_note:"Field voice note",other:"Field update"
+    safety:"Safety observation",weather:"Weather delay",delay:"Work setback",delivery:"Delivery update",voice_note:"Field voice note",other:"Field update"
   } as Record<string,string>)[input.submissionType]||"Field update";
   const source={source:"field_capture",submission_id:input.submissionId,evidence_id:input.evidenceId};
   const out:Candidate[]=[];
