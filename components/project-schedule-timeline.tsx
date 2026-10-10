@@ -25,7 +25,7 @@ const localToday = () => { const d = new Date(); return [d.getFullYear(), String
 const isCompleted = (e: Event) => Boolean(datePart(e.end_at)) || ["complete", "completed", "done", "achieved"].includes((e.status || "").toLowerCase());
 const toneOf = (m: Milestone, today: string): Tone => {
   if (!m.planned) return "unknown";
-  if (m.complete) return m.actual && m.actual > m.planned ? "late" : "done";
+  if (m.complete) return !m.actual ? "unknown" : m.actual > m.planned ? "late" : "done";
   if (today && m.planned < today) return "late";
   if (today && day(m.planned) - day(today) <= 14 && m.planned >= today) return "next";
   return "planned";
@@ -99,7 +99,7 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
   const start = rangeStart === rangeEnd ? rangeStart - 15 : rangeStart;
   const end = rangeStart === rangeEnd ? rangeEnd + 15 : rangeEnd;
   const axisSpan = Math.max(1, end - start);
-  const x = (d: string) => Math.max(3, Math.min(97, 3 + ((day(d) - start) / axisSpan) * 94));
+  const x = (d: string) => Math.max(10, Math.min(90, 10 + ((day(d) - start) / axisSpan) * 80));
   const todayPos = today ? x(today) : null;
   const elapsed = today && hasBaseline ? Math.max(0, Math.min(100, Math.round((day(today) - day(baselineStart!)) / (day(baselineFinish!) - day(baselineStart!)) * 100))) : null;
   const canvasWidth = Math.max(820, Math.min(2500, 520 + dated.length * 100));
@@ -179,20 +179,19 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
     <div className={styles.scroller} tabIndex={0} aria-label="Scrollable schedule with time axis and milestone markers">
       <div className={styles.canvas} style={{ width: canvasWidth, height: plotHeight }}>
         {Array.from({ length: 7 }, (_, i) => {
-          const pct = 3 + i * 94 / 6;
+          const pct = 10 + i * 80 / 6;
           const date = dateFromDay(Math.round(start + (end - start) * i / 6));
           return <div className={styles.tick} key={i} style={{ left: pct + "%" }}><span>{shortDate(date)}</span><i /></div>;
         })}
-        <div className={styles.rail}><span className={styles.railPast} style={{ width: (todayPos || 3) + "%" }} /></div>
-        {today && <div className={styles.today} style={{ left: (todayPos || 3) + "%" }}><b>Today</b><i /></div>}
+        <div className={styles.rail}><span className={styles.railPast} style={{ width: (todayPos !== null ? Math.max(0, Math.min(100, (todayPos - 10) / 80 * 100)) : 0) + "%" }} /></div>
+        {today && <div className={styles.today} style={{ left: todayPos + "%" }}><b>Today</b><i /></div>}
         {markers.map(({ m, position, lane }) => {
           const tone = toneOf(m, today);
-          return <button type="button" key={m.id} className={styles.marker} data-tone={tone} aria-pressed={selected === m.id} style={{ left: position + "%", top: 90 + lane * 57 }} onClick={() => { setSelected(selected === m.id ? null : m.id); setEditing(null); }} title={m.title + " — " + toneLabel(m, today)}>
+          return <button type="button" key={m.id} className={styles.marker} data-tone={tone} aria-pressed={selected === m.id} style={{ left: position + "%", top: 108 + lane * 57, "--lead": (23 + lane * 57) + "px" } as React.CSSProperties} onClick={() => { setSelected(selected === m.id ? null : m.id); setEditing(null); }} title={m.title + " — " + toneLabel(m, today)}>
             <i /><strong>{m.title}</strong><small>{labelDate(m.planned)}</small>
           </button>;
         })}
-        <span className={styles.startCaption} style={{ left: "3%" }}>{baselineStart ? "Baseline start" : "Earliest recorded"}</span>
-        <span className={styles.endCaption} style={{ left: "97%" }}>{baselineFinish ? "Target finish" : "Latest recorded"}</span>
+        
       </div>
     </div>
 
