@@ -19,6 +19,8 @@
 .legend{display:flex;align-items:center;gap:13px;flex-wrap:wrap;color:#61696b;font-size:10px;margin:17px 0 6px}
 .legend span{display:inline-flex;align-items:center;gap:5px}
 .legend i{height:8px;width:8px;border-radius:50%;display:inline-block;background:#a6aeb2}
+.legend .legendHistory{background:#6885aa}
+.legend .legendImpact{background:#d76e40}
 .legend .legendToday{background:#ea761c}
 .legend .legendDone{background:var(--green)}
 .legend .legendLate{background:var(--red)}
@@ -36,6 +38,12 @@
 .today i{position:absolute;left:0;top:21px;bottom:0;border-left:2px dashed #e87524;opacity:.75}
 .marker{position:absolute;z-index:3;min-width:134px;width:150px;max-width:150px;transform:translateX(-50%);padding:6px 8px 7px;border:1px solid #c7d0d6;border-radius:6px;background:#fff;box-shadow:0 3px 10px rgba(22,25,28,.07);text-align:center;cursor:pointer;color:#26343b;line-height:1.25}
 .marker strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px}
+.markerType{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.04em;font-weight:800;color:#5a738d;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.marker[data-kind="milestone"] .markerType{color:#a35a1d}
+.marker[data-kind="event"]{background:#f5f8fc;border-color:#b4c8de}
+.marker[data-kind="event"] i{background:#6885aa;box-shadow:0 0 0 1px #7895b2}
+.marker[data-tone="impact"]{border-color:#ebc4a7;background:#fff3e9}
+.marker[data-tone="impact"] i{background:#d76e40;box-shadow:0 0 0 1px #b76c4a}
 .marker small{display:block;color:#657077;font-size:9px;margin-top:3px}
 .marker:before{content:"";position:absolute;left:calc(50% - .5px);bottom:100%;height:var(--lead,15px);border-left:1px solid #b1b7b9;pointer-events:none}
 .marker i{position:absolute;left:calc(50% - 5px);bottom:calc(100% + var(--lead,15px) - 5px);border:2px solid white;background:#67849b;width:11px;height:11px;border-radius:50%;box-shadow:0 0 0 1px #9aa6af}
@@ -49,6 +57,13 @@
 .startCaption,.endCaption{position:absolute;top:96px;font-size:9px;color:#7d8587;white-space:nowrap}
 .startCaption{transform:translateX(-5%)}
 .endCaption{transform:translateX(-95%)}
+.undated{margin-top:14px;padding:12px;border:1px dashed #c6c8c6;border-radius:7px;background:#faf9f6}
+.undated>strong{display:block;font-size:12px;color:#404849}
+.undated p{margin:4px 0 10px;font-size:10px;color:#72797b;line-height:1.4}
+.undatedChips{display:flex;gap:7px;flex-wrap:wrap}
+.undatedChips button{max-width:260px;padding:8px 10px;display:flex;flex-direction:column;gap:3px;text-align:left;border:1px solid #d4d7d4;border-radius:5px;background:white;cursor:pointer;font-size:11px;color:#29363b}
+.undatedChips button:hover,.undatedChips button[aria-pressed="true"]{border-color:#dd7d35;background:#fff7ef}
+.undatedChips small{font-size:9px;text-transform:uppercase;color:#697277}
 .milestoneList{margin-top:14px;border:1px solid #e3e5e1;border-radius:7px;background:#fff;overflow:hidden}
 .listHeading{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;cursor:pointer;list-style:none;user-select:none}
 .listHeading::-webkit-details-marker{display:none}
