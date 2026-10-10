@@ -12,6 +12,8 @@ const types=[
  {key:"receipt",icon:"$",label:"Receipt",hint:"Capture a field purchase"},
  {key:"invoice",icon:"▤",label:"Invoice",hint:"Capture billing evidence"},
  {key:"incident",icon:"!",label:"Incident",hint:"Describe what happened"},
+ {key:"weather",icon:"☁",label:"Weather Delay",hint:"Record weather conditions and any stoppage"},
+ {key:"delay",icon:"⚑",label:"Work Setback",hint:"Document rework, blocked access, or schedule issues"},
  {key:"safety",icon:"⚠",label:"Safety",hint:"Record an observation"},
  {key:"delivery",icon:"⇩",label:"Delivery",hint:"Document material delivery"},
  {key:"voice_note",icon:"●",label:"Voice Note",hint:"Talk instead of typing"},
@@ -99,7 +101,7 @@ export default function FieldCapturePage(){
    const up=await s.storage.from("field-capture").upload(storagePath,file,{contentType:file.type||undefined});
    if(up.error){setMsg(up.error.message);setBusy(false);return}
   }
-  const evidenceType=type==="invoice"||type==="receipt"?"invoice":type==="progress"||type==="safety"||type==="delivery"?"photo":type==="incident"||type==="voice_note"?"field":"document";
+  const evidenceType=type==="invoice"||type==="receipt"?"invoice":type==="progress"||type==="safety"||type==="delivery"?"photo":type==="incident"||type==="weather"||type==="delay"||type==="voice_note"?"field":"document";
   const ev=await s.from("evidence").insert({
    project_id:project.id,evidence_type:evidenceType,title:title.trim()||types.find(x=>x.key===type)?.label||"Field capture",
    source_system:"field_capture",storage_path:storagePath,occurred_at:new Date().toISOString(),raw_text:notes.trim()||null,
@@ -140,7 +142,7 @@ export default function FieldCapturePage(){
     <div className="capture-editor-head"><span className="capture-big-icon">{selected.icon}</span><div><h3>{selected.label}</h3><p>{selected.hint}</p></div></div>
     <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Short title (optional)"/>
     {(type==="receipt"||type==="invoice")&&<div className="capture-two"><input value={vendor} onChange={e=>setVendor(e.target.value)} placeholder="Vendor / merchant"/><input value={amount} onChange={e=>setAmount(e.target.value)} inputMode="decimal" placeholder="Amount"/></div>}
-    <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder={type==="incident"?"Describe what happened, who was involved, and any immediate action taken…":"Add a quick note or description…"} />
+    <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder={type==="incident"?"Describe what happened, who was involved, and any immediate action taken…":type==="weather"?"What weather conditions occurred? Was work delayed or stopped? For how long?":type==="delay"?"What work was impacted, why, and how many days (if known)?":"Add a quick note or description…"} />
 
     <div className="capture-media">
      <label className="capture-upload"><input type="file" accept={type==="voice_note"?"audio/*":type==="receipt"||type==="invoice"||type==="progress"||type==="safety"||type==="delivery"?"image/*,application/pdf":"image/*,audio/*,application/pdf"} capture={type==="voice_note"?undefined:"environment"} onChange={e=>setFile(e.target.files?.[0]||null)}/><b>＋</b><span>{file?file.name:(type==="voice_note"?"Attach audio":"Take photo or choose file")}</span></label>
