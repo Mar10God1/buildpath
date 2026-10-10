@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { type CSSProperties, FormEvent, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import styles from "./project-schedule-timeline.module.css";
 
@@ -43,13 +43,14 @@ const toneLabel = (m: Milestone, today: string) => {
 export function ProjectScheduleTimeline({ project, events, refresh }: { project: Project; events: Event[]; refresh: () => void }) {
   const [today, setToday] = useState("");
   const [adding, setAdding] = useState(false);
+  const [editingBaseline, setEditingBaseline] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => { setToday(localToday()); }, []);
-  useEffect(() => { setAdding(false); setEditing(null); setSelected(null); setError(""); }, [project.id]);
+  useEffect(() => { setAdding(false); setEditingBaseline(false); setEditing(null); setSelected(null); setError(""); }, [project.id]);
 
   const milestones: Milestone[] = events.filter(e => e.event_type.toLowerCase() === "milestone").map(e => ({
     ...e, planned: datePart(e.start_at), actual: datePart(e.end_at), complete: isCompleted(e),
@@ -149,6 +150,24 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
     refresh();
   }
 
+  async function saveBaseline(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (saving) return;
+    const f = new FormData(e.currentTarget);
+    const plannedStart = String(f.get("baselineStart") || "");
+    const plannedFinish = String(f.get("baselineFinish") || "");
+    if (!datePart(plannedStart) || !datePart(plannedFinish) || plannedStart >= plannedFinish) {
+      setError("Set a valid baseline start and a target finish after that date."); return;
+    }
+    setSaving(true); setError("");
+    const result = await createClient().from("projects").update({
+      baseline_start: plannedStart, target_finish: plannedFinish, updated_at: new Date().toISOString(),
+    }).eq("id", project.id);
+    setSaving(false);
+    if (result.error) { setError(result.error.message); return; }
+    window.location.reload();
+  }
+
   function form(m?: Milestone) {
     return <form className={styles.editor} onSubmit={e => saveMilestone(e, m)}>
       <label>Milestone <input name="title" required defaultValue={m?.title || ""} placeholder="e.g. Foundation inspection" /></label>
@@ -163,15 +182,20 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
   return <section className={"panel " + styles.root} aria-label="Project schedule timeline">
     <div className={styles.heading}>
       <div><p className="eyebrow">BASELINE VS. ACTUAL</p><h3>Project schedule & milestones</h3><p className={styles.subhead}>Planned dates, today's position, and recorded completion. Select a milestone to view or edit it.</p></div>
-      <button className="primary-action" onClick={() => { setAdding(!adding); setEditing(null); setError(""); }}>{adding ? "Cancel" : "＋ Add milestone"}</button>
+      <div className={styles.headingActions}><button className="secondary-action" onClick={() => { setEditingBaseline(!editingBaseline); setAdding(false); setError(""); }}>{editingBaseline ? "Close baseline" : "Edit baseline"}</button><button className="primary-action" onClick={() => { setAdding(!adding); setEditingBaseline(false); setEditing(null); setError(""); }}>{adding ? "Cancel" : "＋ Add milestone"}</button></div>
     </div>
 
     <div className={styles.metrics}>
       <div className={styles.health} data-health={health}><span>Schedule health</span><strong>{headline}</strong><small>{summary}</small></div>
-      <div><span>Baseline</span><strong>{baselineStart ? shortDate(baselineStart) : "Not set"} → {baselineFinish ? shortDate(baselineFinish) : "Not set"}</strong><small>{elapsed !== null ? elapsed + "% of baseline time elapsed" : "Set both dates in project setup"}</small></div>
+      <div><span>Baseline</span><strong>{baselineStart ? shortDate(baselineStart) : "Not set"} → {baselineFinish ? shortDate(baselineFinish) : "Not set"}</strong><small>{elapsed !== null ? elapsed + "% of baseline time elapsed" : "Use Edit baseline to set both dates"}</small></div>
       <div><span>Milestones</span><strong>{completed} / {milestones.length} completed</strong><small>{overdue.length} overdue · {lateDone.length} completed late</small></div>
     </div>
 
+    {editingBaseline && <form className={styles.editor} onSubmit={saveBaseline}>
+      <label>Baseline start <input type="date" name="baselineStart" required defaultValue={baselineStart || ""} /></label>
+      <label>Target finish <input type="date" name="baselineFinish" required defaultValue={baselineFinish || ""} /></label>
+      <div className={styles.formActions}><button disabled={saving} className="primary-action">{saving ? "Saving..." : "Save baseline dates"}</button><button type="button" className="secondary-action" onClick={() => setEditingBaseline(false)}>Cancel</button></div>
+    </form>}
     {adding && form()}
     {error && <div role="alert" className="form-message">{error}</div>}
 
@@ -187,7 +211,7 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
         {today && <div className={styles.today} style={{ left: todayPos + "%" }}><b>Today</b><i /></div>}
         {markers.map(({ m, position, lane }) => {
           const tone = toneOf(m, today);
-          return <button type="button" key={m.id} className={styles.marker} data-tone={tone} aria-pressed={selected === m.id} style={{ left: position + "%", top: 108 + lane * 57, "--lead": (23 + lane * 57) + "px" } as React.CSSProperties} onClick={() => { setSelected(selected === m.id ? null : m.id); setEditing(null); }} title={m.title + " — " + toneLabel(m, today)}>
+          return <button type="button" key={m.id} className={styles.marker} data-tone={tone} aria-pressed={selected === m.id} style={{ left: position + "%", top: 108 + lane * 57, "--lead": (27 + lane * 57) + "px" } as CSSProperties} onClick={() => { setSelected(selected === m.id ? null : m.id); setEditing(null); }} title={m.title + " — " + toneLabel(m, today)}>
             <i /><strong>{m.title}</strong><small>{labelDate(m.planned)}</small>
           </button>;
         })}
@@ -210,7 +234,7 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
         </button>;
       })}
     </div> : <p className={styles.empty}>There are no project milestones yet. Add your first milestone to make the schedule trackable.</p>}
-    {!hasBaseline && <p className={styles.footnote}>A complete baseline is missing. Set the project's start and finish dates to measure overall schedule progress.</p>}
+    {!hasBaseline && <p className={styles.footnote}>A complete baseline is missing. Use Edit baseline to set the project's start and finish dates to measure overall schedule progress.</p>}
     {impactDays > 0 && <p className={styles.footnote}>Schedule exposure: {impactDays} days reported across {reportedImpacts.length} impact events. These are individual records, not necessarily additive or a forecast of project delay.</p>}
   </section>;
 }
