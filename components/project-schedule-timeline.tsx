@@ -12,9 +12,10 @@ type Event = {
 };
 type Milestone = Event & { planned: string | null; actual: string | null; complete: boolean };
 type Tone = "done" | "late" | "next" | "planned" | "unknown";
-type EventCategory = "milestone" | "weather" | "injury" | "setback" | "change" | "decision" | "field" | "meeting" | "general";
+export type EventCategory = "milestone" | "weather" | "injury" | "setback" | "change" | "decision" | "field" | "meeting" | "general";
+export const eventCategories: EventCategory[] = ["milestone", "weather", "injury", "setback", "change", "decision", "field", "meeting", "general"];
 
-function categoryForEvent(e: Event): EventCategory {
+export function categoryForEvent(e: Pick<Event, "event_type" | "title" | "schedule_impact_days">): EventCategory {
   const type = e.event_type.toLowerCase().replaceAll("-", "_").replaceAll(" ", "_");
   const label = e.title.toLowerCase();
   if (type === "milestone") return "milestone";
@@ -27,12 +28,12 @@ function categoryForEvent(e: Event): EventCategory {
   if (/(meeting|call)/.test(type)) return "meeting";
   return "general";
 }
-const categoryName: Record<EventCategory, string> = {
+export const categoryName: Record<EventCategory, string> = {
   milestone: "Milestone", weather: "Weather", injury: "Safety / injury",
   setback: "Schedule setback", change: "Change", decision: "Decision",
   field: "Field work", meeting: "Meeting", general: "Project event",
 };
-const categoryGlyph: Record<EventCategory, string> = {
+export const categoryGlyph: Record<EventCategory, string> = {
   milestone: "◆", weather: "☁", injury: "✚", setback: "!", change: "⇄",
   decision: "✓", field: "▤", meeting: "◉", general: "•",
 };
@@ -70,7 +71,11 @@ const toneLabel = (m: Milestone, today: string) => {
   return "Upcoming";
 };
 
-export function ProjectScheduleTimeline({ project, events, refresh, canEdit = true }: { project: Project; events: Event[]; refresh: () => void; canEdit?: boolean }) {
+export function ProjectScheduleTimeline({ project, events, refresh, canEdit = true, visibleCategories = null }: { project: Project; events: Event[]; refresh: () => void; canEdit?: boolean; visibleCategories?: EventCategory[] | null }) {
+  // Category filtering only changes what is plotted and listed. Schedule health,
+  // milestone counts and disruption totals always reflect the full project record.
+  const isFiltered = Boolean(visibleCategories && visibleCategories.length);
+  const isShown = (c: EventCategory) => !isFiltered || visibleCategories!.includes(c);
   const [today, setToday] = useState("");
   const [adding, setAdding] = useState(false);
   const [editingBaseline, setEditingBaseline] = useState(false);
@@ -81,6 +86,13 @@ export function ProjectScheduleTimeline({ project, events, refresh, canEdit = tr
 
   useEffect(() => { setToday(localToday()); }, []);
   useEffect(() => { setAdding(false); setEditingBaseline(false); setEditing(null); setSelected(null); setError(""); }, [project.id]);
+  const filterKey = (visibleCategories || []).join(",");
+  useEffect(() => {
+    // Close the detail card if its event was just filtered out of view.
+    if (!selected) return;
+    const e = events.find(ev => ev.id === selected);
+    if (e && !isShown(categoryForEvent(e))) { setSelected(null); setEditing(null); }
+  }, [filterKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const milestones: Milestone[] = events.filter(e => e.event_type.toLowerCase() === "milestone").map(e => ({
     ...e, planned: datePart(e.start_at), actual: datePart(e.end_at), complete: isCompleted(e),
@@ -93,8 +105,9 @@ export function ProjectScheduleTimeline({ project, events, refresh, canEdit = tr
     milestone: milestones.find(m => m.id === e.id) || null,
     category: categoryForEvent(e),
   })).sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999") || a.event.title.localeCompare(b.event.title));
-  const plottedEvents = timelineItems.filter((item): item is typeof item & {date: string} => item.date !== null);
-  const undatedEvents = timelineItems.filter(item => !item.date);
+  const visibleItems = timelineItems.filter(item => isShown(item.category));
+  const plottedEvents = visibleItems.filter((item): item is typeof item & {date: string} => item.date !== null);
+  const undatedEvents = visibleItems.filter(item => !item.date);
   const disruptions = plottedEvents.filter(item => isDisruption(item.event, item.category));
   const weatherCount = events.filter(e => categoryForEvent(e) === "weather").length;
   const safetyCount = events.filter(e => categoryForEvent(e) === "injury").length;
@@ -275,7 +288,9 @@ export function ProjectScheduleTimeline({ project, events, refresh, canEdit = tr
 
   return <section className={"panel " + styles.root} aria-label="Project schedule timeline">
     <div className={styles.heading}>
-      <div><p className="eyebrow">BASELINE VS. ACTUAL</p><h3>Project schedule & event timeline</h3><p className={styles.subhead}>All recorded project events ({events.length}), milestones, today's position, and schedule status. Select any marker for details.</p></div>
+      <div><p className="eyebrow">BASELINE VS. ACTUAL</p><h3>Project schedule & event timeline</h3><p className={styles.subhead}>{isFiltered
+        ? <>Showing {visibleItems.length} of {events.length} recorded events for the selected categories. Schedule health below still reflects every event.</>
+        : <>All recorded project events ({events.length}), milestones, today's position, and schedule status. Select any marker for details.</>}</p></div>
       {canEdit&&<div className={styles.headingActions}><button className="secondary-action" onClick={() => { setEditingBaseline(!editingBaseline); setAdding(false); setError(""); }}>{editingBaseline ? "Close baseline" : "Edit baseline"}</button><button className="primary-action" onClick={() => { setAdding(!adding); setEditingBaseline(false); setEditing(null); setError(""); }}>{adding ? "Cancel" : "＋ Add milestone"}</button></div>}
     </div>
 
@@ -301,6 +316,7 @@ export function ProjectScheduleTimeline({ project, events, refresh, canEdit = tr
     {error && <div role="alert" className="form-message">{error}</div>}
 
     <div className={styles.legend}><span><i className={styles.legendWeather} />☁ Weather</span><span><i className={styles.legendInjury} />✚ Safety / injury</span><span><i className={styles.legendImpact} />! Setback</span><span><i className={styles.legendChange} />Change</span><span><i className={styles.legendHistory} />Other events</span><span><i className={styles.legendToday} />Today</span><span><i className={styles.legendDone} />Completed</span><span><i className={styles.legendLate} />Behind</span><span><i className={styles.legendNext} />Due soon</span><span><i className={styles.legendPlanned} />Upcoming</span></div>
+    {isFiltered && visibleItems.length === 0 && <p className={styles.empty}>No events match the selected categories.</p>}
     <div className={styles.scroller} tabIndex={0} aria-label="Scrollable project timeline showing every dated project event and milestone">
       <div className={styles.canvas} style={{ width: canvasWidth, height: plotHeight }}>
         {Array.from({ length: 7 }, (_, i) => {
