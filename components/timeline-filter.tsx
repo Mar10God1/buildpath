@@ -48,9 +48,9 @@ export function TimelineFilter({ events, selected, onChange }: {
         <i aria-hidden="true">{categoryGlyph[c]}</i>{categoryName[c]} <b>{counts.get(c)}</b>
       </button>
     ))}
-    {selected.length > 0 && <>
-      <span className={styles.summary}>{shownCount} of {events.length} events</span>
+    {selected.length > 0 && <span className={styles.summary}>
+      {shownCount} of {events.length} events
       <button type="button" className={styles.clear} onClick={() => onChange([])}>Clear</button>
-    </>}
+    </span>}
   </div>;
 }

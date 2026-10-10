@@ -161,19 +161,58 @@ export function ProjectScheduleTimeline({ project, events, refresh, canEdit = tr
   const x = (d: string) => Math.max(10, Math.min(90, 10 + ((day(d) - start) / axisSpan) * 80));
   const todayPos = today ? x(today) : null;
   const elapsed = today && hasBaseline ? Math.max(0, Math.min(100, Math.round((day(today) - day(baselineStart!)) / (day(baselineFinish!) - day(baselineStart!)) * 100))) : null;
-  // Long timelines can scroll within the chart. Multiple events on the same day
-  // use separate lanes instead of hiding, clipping, or arbitrarily moving them.
-  const canvasWidth = Math.max(820, Math.min(5600, 700 + plottedEvents.length * 95));
-  const laneLast: number[] = [];
-  const markers = plottedEvents.map(item => {
-    const position = x(item.date);
-    const pixel = position / 100 * canvasWidth;
-    let lane = laneLast.findIndex(last => pixel - last > 158);
-    if (lane < 0) { lane = laneLast.length; laneLast.push(pixel); }
-    else laneLast[lane] = pixel;
-    return { ...item, position, lane };
+  // ---- Swim-lane layout ----------------------------------------------------
+  // The full project span fits the available width. Each category gets its own
+  // row; events are compact dots (or bars for date ranges) and details appear on
+  // hover/selection instead of as always-on cards.
+  const padDays = Math.max(6, Math.round((rangeEnd - rangeStart) * 0.025));
+  const axisStart = rangeStart - padDays;
+  const axisEnd = rangeEnd + padDays;
+  const axisLen = Math.max(1, axisEnd - axisStart);
+  const px = (d: string) => Math.max(0, Math.min(100, ((day(d) - axisStart) / axisLen) * 100));
+  const monthTicks: { key: string; pos: number; label: string; year: boolean }[] = [];
+  {
+    const first = new Date(dateFromDay(axisStart) + "T12:00:00Z");
+    let y = first.getUTCFullYear(), m = first.getUTCMonth();
+    const totalMonths = axisLen / 30.4;
+    const step = totalMonths > 36 ? 6 : totalMonths > 20 ? 3 : totalMonths > 12 ? 2 : 1;
+    for (let i = 0; i < 240; i++) {
+      const iso = y + "-" + String(m + 1).padStart(2, "0") + "-01";
+      if (day(iso) > axisEnd) break;
+      if (day(iso) >= axisStart && m % step === 0) {
+        const showYear = m === 0 || monthTicks.length === 0;
+        monthTicks.push({ key: iso, pos: px(iso), year: showYear,
+          label: new Date(iso + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", timeZone: "UTC" }) + (showYear ? " " + y : "") });
+      }
+      m++; if (m > 11) { m = 0; y++; }
+    }
+  }
+  const AXIS_H = 46, LANE_H = 18, ROW_PAD = 15;
+  // A "baseline" record duplicates the shaded baseline window, so it isn't drawn as its own bar.
+  const chartEvents = plottedEvents.filter(i => !(hasBaseline && i.event.event_type.toLowerCase() === "baseline"));
+  const rows = eventCategories.filter(c => chartEvents.some(i => i.category === c)).map(category => {
+    const laneEnds: number[] = [];
+    const items = chartEvents.filter(i => i.category === category).map(item => {
+      const endDate = item.milestone ? null : datePart(item.event.end_at);
+      const isRange = Boolean(endDate && endDate > item.date);
+      const startPos = px(item.date);
+      const endPos = isRange ? px(endDate!) : startPos;
+      // Reserve room for a milestone's text label or an impact tag so nothing overlaps.
+      const flip = Boolean(item.milestone) && startPos > 70;
+      const reserve = item.milestone && !flip ? 16 : Number(item.event.schedule_impact_days) > 0 ? 3.4 : 1.6;
+      let lane = laneEnds.findIndex(last => startPos - last > 0.6);
+      if (lane < 0) { lane = laneEnds.length; laneEnds.push(endPos + reserve); }
+      else laneEnds[lane] = endPos + reserve;
+      return { ...item, endDate, isRange, startPos, endPos, lane, flip };
+    });
+    return { category, items, height: ROW_PAD * 2 + (Math.max(1, laneEnds.length) - 1) * LANE_H };
   });
-  const plotHeight = 157 + Math.max(1, laneLast.length) * 65;
+  const rowTops: number[] = [];
+  rows.reduce((top, r) => { rowTops.push(top); return top + r.height; }, 0);
+  const plotHeight = AXIS_H + rows.reduce((s, r) => s + r.height, 0) + 6;
+  const todayX = today && day(today) >= axisStart && day(today) <= axisEnd ? px(today) : null;
+  const [hovered, setHovered] = useState<string | null>(null);
+  const hoveredItem = rows.flatMap((r, ri) => r.items.map(it => ({ ...it, top: AXIS_H + rowTops[ri] + ROW_PAD + it.lane * LANE_H }))).find(it => it.event.id === hovered) || null;
   const selectedEvent = events.find(e => e.id === selected) || null;
   const selectedMilestone = milestones.find(m => m.id === selected) || null;
 
@@ -299,13 +338,6 @@ export function ProjectScheduleTimeline({ project, events, refresh, canEdit = tr
       <div><span>Baseline</span><strong>{baselineStart ? shortDate(baselineStart) : "Not set"} → {baselineFinish ? shortDate(baselineFinish) : "Not set"}</strong><small>{elapsed !== null ? elapsed + "% of baseline time elapsed" : "Use Edit baseline to set both dates"}</small></div>
       <div><span>Milestones</span><strong>{completed} / {milestones.length} completed</strong><small>{overdue.length} overdue · {lateDone.length} completed late</small></div>
     </div>
-    {(disruptions.length > 0 || weatherCount || safetyCount || setbackCount) && <div className={styles.disruptionOverview} aria-label="Weather, safety, and schedule events">
-      <strong><span aria-hidden="true">⚑</span> Disruptions & incidents</strong>
-      <span><b>{weatherCount}</b> weather events</span>
-      <span><b>{safetyCount}</b> safety / injury reports</span>
-      <span><b>{setbackCount}</b> other setbacks</span>
-      <small>Flags show disruptions and incidents. Bands span only dates explicitly recorded; weather events without reported disruption are not treated as delays.</small>
-    </div>}
 
     {canEdit&&editingBaseline && <form className={styles.editor} onSubmit={saveBaseline}>
       <label>Baseline start <input type="date" name="baselineStart" required defaultValue={baselineStart || ""} /></label>
@@ -315,47 +347,51 @@ export function ProjectScheduleTimeline({ project, events, refresh, canEdit = tr
     {canEdit&&adding && form()}
     {error && <div role="alert" className="form-message">{error}</div>}
 
-    <div className={styles.legend}><span><i className={styles.legendWeather} />☁ Weather</span><span><i className={styles.legendInjury} />✚ Safety / injury</span><span><i className={styles.legendImpact} />! Setback</span><span><i className={styles.legendChange} />Change</span><span><i className={styles.legendHistory} />Other events</span><span><i className={styles.legendToday} />Today</span><span><i className={styles.legendDone} />Completed</span><span><i className={styles.legendLate} />Behind</span><span><i className={styles.legendNext} />Due soon</span><span><i className={styles.legendPlanned} />Upcoming</span></div>
     {isFiltered && visibleItems.length === 0 && <p className={styles.empty}>No events match the selected categories.</p>}
-    <div className={styles.scroller} tabIndex={0} aria-label="Scrollable project timeline showing every dated project event and milestone">
-      <div className={styles.canvas} style={{ width: canvasWidth, height: plotHeight }}>
-        {Array.from({ length: 7 }, (_, i) => {
-          const pct = 10 + i * 80 / 6;
-          const date = dateFromDay(Math.round(start + (end - start) * i / 6));
-          return <div className={styles.tick} key={i} style={{ left: pct + "%" }}><span>{shortDate(date)}</span><i /></div>;
-        })}
-        <div className={styles.rail}><span className={styles.railPast} style={{ width: (todayPos !== null ? Math.max(0, Math.min(100, (todayPos - 10) / 80 * 100)) : 0) + "%" }} /></div>
-        {disruptions.map(({event, date, category}) => {
-          const endDate = datePart(event.end_at);
-          const isRange = Boolean(endDate && endDate > date && event.event_type.toLowerCase() !== "milestone");
-          const startPos = x(date);
-          const endPos = isRange ? x(endDate!) : startPos;
-          return <div key={"setback-" + event.id}
-            className={styles.disruptionWindow} data-category={category} data-selected={selected === event.id}
-            style={{left: startPos + "%", width: isRange ? Math.max(0.3, endPos - startPos) + "%" : "12px", height: plotHeight - 82}}
-            title={categoryName[category] + ": " + event.title + " (" + labelDate(date) + (isRange ? " – " + labelDate(endDate) : "") + ")"} aria-hidden="true"/>;
-        })}
-        {today && <div className={styles.today} style={{ left: todayPos + "%" }}><b>Today</b><i /></div>}
-        {markers.map(({ event, date, milestone, category, position, lane }) => {
-          const tone = milestone ? toneOf(milestone, today) : Number(event.schedule_impact_days) > 0 ? "impact" : "event";
-          const dateLabel = milestone ? "Planned: " + labelDate(date) : labelDate(date);
-          const endDate = !milestone ? datePart(event.end_at) : null;
-          const dateSpan = endDate && endDate > date ? " – " + labelDate(endDate) : "";
-          return <button type="button" key={event.id} className={styles.marker}
-            data-kind={milestone ? "milestone" : "event"} data-category={category} data-tone={tone} aria-pressed={selected === event.id}
-            style={{ left: position + "%", top: 118 + lane * 65, "--lead": (37 + lane * 65) + "px" } as CSSProperties}
-            onClick={() => { setSelected(selected === event.id ? null : event.id); setEditing(null); }}
-            title={categoryName[category] + ": " + event.title + " — " + dateLabel + dateSpan + (Number(event.schedule_impact_days) > 0 ? " · Reported impact: " + event.schedule_impact_days + " days" : "")}>
-            <i />
-            <span className={styles.markerType}><b className={styles.markerGlyph} aria-hidden="true">{categoryGlyph[category]}</b>{categoryName[category]}</span>
-            <strong>{event.title}</strong>
-            <small>{dateLabel}{dateSpan}</small>
-            {Number(event.schedule_impact_days) > 0 && <span className={styles.impactFlag}>+{event.schedule_impact_days}d reported impact</span>}
-          </button>;
-        })}
-        
+    {rows.length > 0 && <div className={styles.chart}>
+      <div className={styles.rowLabels} style={{ paddingTop: AXIS_H }} aria-hidden="true">
+        {rows.map(r => <div key={r.category} className={styles.rowLabel} data-category={r.category} style={{ height: r.height }}>
+          <b>{categoryGlyph[r.category]}</b><span>{categoryName[r.category]}</span><small>{r.items.length}</small>
+        </div>)}
       </div>
-    </div>
+      <div className={styles.plotScroll} tabIndex={0} aria-label="Project timeline. Each row is a category; select a marker for details.">
+        <div className={styles.plot} style={{ height: plotHeight }} onMouseLeave={() => setHovered(null)}>
+          {hasBaseline && <div className={styles.baselineWindow} style={{ left: px(baselineStart!) + "%", width: (px(baselineFinish!) - px(baselineStart!)) + "%", top: 0, height: plotHeight }}>
+            <span className={styles.baselineTag} data-edge="start">Start {shortDate(baselineStart!)}</span>
+            <span className={styles.baselineTag} data-edge="end">Target finish {labelDate(baselineFinish)}</span>
+          </div>}
+          {monthTicks.map(t => <div key={t.key} className={styles.monthTick} data-year={t.year} style={{ left: t.pos + "%", height: plotHeight }}><span>{t.label}</span></div>)}
+          {rows.map((r, ri) => <div key={r.category} className={styles.rowBand} data-odd={ri % 2 === 1} style={{ top: AXIS_H + rowTops[ri], height: r.height }} />)}
+          {todayX !== null && <div className={styles.todayLine} style={{ left: todayX + "%", height: plotHeight }}><b>Today</b></div>}
+          {rows.map((r, ri) => r.items.map(item => {
+            const { event, milestone, category } = item;
+            const tone = milestone ? toneOf(milestone, today) : undefined;
+            const impact = Number(event.schedule_impact_days) > 0 ? Number(event.schedule_impact_days) : 0;
+            const top = AXIS_H + rowTops[ri] + ROW_PAD + item.lane * LANE_H;
+            const dateText = labelDate(item.date) + (item.isRange ? " – " + labelDate(item.endDate) : "");
+            return <button type="button" key={event.id} className={styles.mark}
+              data-category={category} data-range={item.isRange} data-milestone={Boolean(milestone)} data-tone={tone} data-flip={item.flip}
+              aria-pressed={selected === event.id}
+              aria-label={categoryName[category] + ": " + event.title + ", " + dateText + (impact ? ", " + impact + " days reported impact" : "")}
+              style={{ left: item.startPos + "%", top, ...(item.isRange ? { width: "max(10px, " + (item.endPos - item.startPos) + "%)" } : {}) }}
+              onMouseEnter={() => setHovered(event.id)} onFocus={() => setHovered(event.id)} onBlur={() => setHovered(null)}
+              onClick={() => { setSelected(selected === event.id ? null : event.id); setEditing(null); }}>
+              {milestone && <span className={styles.markLabel}>{event.title}</span>}
+              {impact > 0 && <span className={styles.impactTag}>+{impact}d</span>}
+            </button>;
+          }))}
+          {hoveredItem && <div className={styles.tip} data-align={hoveredItem.startPos > 72 ? "right" : hoveredItem.startPos < 18 ? "left" : "center"}
+            style={{ left: hoveredItem.startPos + "%", top: hoveredItem.top - 12 }} role="tooltip">
+            <span data-category={hoveredItem.category}>{categoryGlyph[hoveredItem.category]} {categoryName[hoveredItem.category]}</span>
+            <strong>{hoveredItem.event.title}</strong>
+            <small>{labelDate(hoveredItem.date)}{hoveredItem.isRange ? " – " + labelDate(hoveredItem.endDate) : ""}
+              {Number(hoveredItem.event.schedule_impact_days) > 0 ? " · +" + hoveredItem.event.schedule_impact_days + " days reported" : ""}
+              {hoveredItem.event.cost_impact ? " · $" + Number(hoveredItem.event.cost_impact).toLocaleString("en-US") : ""}</small>
+          </div>}
+        </div>
+      </div>
+    </div>}
+    <p className={styles.chartHint}>Hover a marker for a summary · click to open details{milestones.length ? " · ◆ milestones are labelled" : ""}{reportedImpacts.length ? " · +Nd = reported schedule impact" : ""}</p>
 
     {undatedEvents.length > 0 && <div className={styles.undated}>
       <strong>Needs a date ({undatedEvents.length})</strong>
