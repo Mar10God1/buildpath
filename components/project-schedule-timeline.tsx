@@ -18,7 +18,7 @@ function categoryForEvent(e: Event): EventCategory {
   const type = e.event_type.toLowerCase().replaceAll("-", "_").replaceAll(" ", "_");
   const label = e.title.toLowerCase();
   if (type === "milestone") return "milestone";
-  if (/(injury|injur|accident|safety|incident)/.test(type) || /\b(work(er|place)? injury|injured worker|jobsite accident|workplace accident|lost.time incident)\b/.test(label)) return "injury";
+  if (/(injury|injur|accident|safety)/.test(type) || /\b(work(er|place)? injury|injured worker|jobsite accident|workplace accident|lost.time incident|near miss)\b/.test(label)) return "injury";
   if (/(weather|storm|rain|snow|flood)/.test(type) || /\b(weather delay|storm delay|heavy rain|snow storm|flooding)\b/.test(label)) return "weather";
   if (Number(e.schedule_impact_days) > 0 || /(delay|setback|disruption|blocker|risk|issue)/.test(type) || /\b(delayed|delay|behind schedule|schedule slip|setback|rework|blocked)\b/.test(label)) return "setback";
   if (/(change|rfi)/.test(type)) return "change";
