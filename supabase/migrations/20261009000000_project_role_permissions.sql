@@ -62,12 +62,12 @@ end;
 $$;
 create or replace function private.can_assign_project_access(target_project uuid, target_user uuid, new_role text)
 returns boolean language plpgsql stable security definer set search_path='' as $$
-declare current_role text; target_org_role text; target_existing_role text; is_field boolean;
+declare actor_role text; target_org_role text; target_existing_role text; is_field boolean;
 begin
  if target_user is null or target_user=(select auth.uid()) then return false; end if;
  if new_role not in ('admin','project_manager','superintendent','safety','finance','field','viewer') then return false; end if;
- current_role:=private.project_role(target_project,(select auth.uid()));
- if current_role not in ('owner','admin') then return false; end if;
+ actor_role:=private.project_role(target_project,(select auth.uid()));
+ if actor_role not in ('owner','admin') then return false; end if;
  select om.role into target_org_role
  from public.projects p join public.organization_members om on om.organization_id=p.organization_id
  where p.id=target_project and om.user_id=target_user;
