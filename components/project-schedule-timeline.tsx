@@ -75,12 +75,15 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
   if (overdue.length || finishOverdue) {
     headline = "Behind schedule"; health = "late";
     summary = overdue.length ? overdue.length + " open milestone" + (overdue.length === 1 ? " is" : "s are") + " past the planned date." : "The target finish has passed without project completion being recorded.";
+  } else if (lateDone.length > 0) {
+    headline = "Milestone slippage recorded"; health = "risk";
+    summary = lateDone.length + " milestone" + (lateDone.length === 1 ? " was" : "s were") + " completed after the planned date. Review whether the project has recovered.";
   } else if (impactDays > 0) {
     headline = "Schedule at risk"; health = "risk";
     summary = "There are " + reportedImpacts.length + " recorded schedule-impact events (" + impactDays + " reported days). These are not a critical-path forecast.";
   } else if (isNotStarted && hasBaseline) {
     headline = "Not started"; summary = "The baseline begins " + labelDate(baselineStart) + ".";
-  } else if (hasBaseline && milestones.length && !unverified && dated.length === milestones.length) {
+  } else if (hasBaseline && milestones.length && completed > 0 && !unverified && dated.length === milestones.length) {
     headline = "On track · recorded milestones"; health = "good";
     summary = "No overdue milestones or positive schedule impacts are currently recorded. This is not a verified critical-path forecast.";
   } else if (hasBaseline && milestones.length) {
