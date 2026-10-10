@@ -177,8 +177,24 @@ function Overview({project,companies,people,evidence,events,vendors,visibleModul
 }
 function Timeline({project,events,refresh}:{project:Project;events:EventRow[];refresh:()=>void}){
  const[open,setOpen]=useState(false);const[err,setErr]=useState("");
- async function add(e:FormEvent<HTMLFormElement>){e.preventDefault();const f=new FormData(e.currentTarget);const r=await createClient().from("project_events").insert({project_id:project.id,event_type:String(f.get("type")||"project"),title:String(f.get("title")||""),description:String(f.get("description")||"")||null,start_at:f.get("date")?String(f.get("date"))+"T12:00:00":null,date_precision:"day",cost_impact:f.get("cost")?Number(f.get("cost")):null,schedule_impact_days:f.get("days")?Number(f.get("days")):null});if(r.error){setErr(r.error.message);return}setOpen(false);refresh()}
- return <><ProjectScheduleTimeline project={project} events={events} refresh={refresh}/><section className="panel page-panel"><div className="panel-title"><div><p className="eyebrow">PROJECT HISTORY</p><h3>Connected event history</h3></div><button className="primary-action" onClick={()=>setOpen(!open)}>＋ Add event</button></div>{open&&<form className="inline-form" onSubmit={add}><input name="title" required placeholder="Event title"/><select name="type"><option>project</option><option>schedule</option><option>change</option><option>meeting</option><option>field</option><option>weather</option><option>decision</option></select><input name="date" type="date"/><input name="days" type="number" placeholder="Schedule impact days"/><input name="cost" type="number" placeholder="Cost impact"/><textarea name="description" placeholder="What happened?"/><button className="primary-action">Save event</button>{err&&<div className="form-message">{err}</div>}</form>}{events.length?<div className="event-list">{events.map(e=><article key={e.id}><time>{fmtDate(e.start_at)}</time><div><span className="type">{e.event_type}</span><h4>{e.title}</h4><p>{e.description||"No description"}</p></div><div className="impact-stack">{e.schedule_impact_days!=null&&<span>{e.schedule_impact_days} days</span>}{e.cost_impact!=null&&<span>{money(e.cost_impact)}</span>}</div></article>)}</div>:<Empty text="No events yet. Add a decision, delay or field event."/>}</section></>
+ async function add(e:FormEvent<HTMLFormElement>){
+  e.preventDefault();
+  const f=new FormData(e.currentTarget);
+  const startDate=String(f.get("date")||"");
+  const endDate=String(f.get("end_date")||"");
+  if(endDate && (!startDate || endDate<startDate)){setErr("The end date must be on or after the event start date.");return}
+  const r=await createClient().from("project_events").insert({
+   project_id:project.id,event_type:String(f.get("type")||"project"),
+   title:String(f.get("title")||""),description:String(f.get("description")||"")||null,
+   start_at:startDate?startDate+"T12:00:00":null,end_at:endDate?endDate+"T12:00:00":null,
+   date_precision:startDate?"day":"unknown",
+   cost_impact:f.get("cost")?Number(f.get("cost")):null,
+   schedule_impact_days:f.get("days")?Number(f.get("days")):null
+  });
+  if(r.error){setErr(r.error.message);return}setErr("");setOpen(false);refresh();
+ }
+
+ return <><ProjectScheduleTimeline project={project} events={events} refresh={refresh}/><section className="panel page-panel"><div className="panel-title"><div><p className="eyebrow">PROJECT HISTORY</p><h3>Connected event history</h3></div><button className="primary-action" onClick={()=>setOpen(!open)}>＋ Add event</button></div>{open&&<form className="inline-form" onSubmit={add}><input name="title" required placeholder="Event title"/><select name="type"><option value="project">Project event</option><option value="schedule">Schedule</option><option value="delay">Setback / delay</option><option value="weather">Weather event</option><option value="weather_delay">Weather delay</option><option value="work_injury">Work injury</option><option value="safety_incident">Safety incident</option><option value="change">Change</option><option value="meeting">Meeting</option><option value="field">Field update</option><option value="decision">Decision</option></select><input name="date" type="date" aria-label="Event start date"/><input name="end_date" type="date" aria-label="Event end date (optional)" title="End date, if recorded"/><input name="days" type="number" placeholder="Reported schedule impact days"/><input name="cost" type="number" placeholder="Cost impact"/><textarea name="description" placeholder="What happened?"/><button className="primary-action">Save event</button>{err&&<div className="form-message">{err}</div>}</form>}{events.length?<div className="event-list">{events.map(e=><article key={e.id}><time>{fmtDate(e.start_at)}</time><div><span className="type">{e.event_type}</span><h4>{e.title}</h4><p>{e.description||"No description"}</p></div><div className="impact-stack">{e.schedule_impact_days!=null&&<span>{e.schedule_impact_days} days</span>}{e.cost_impact!=null&&<span>{money(e.cost_impact)}</span>}</div></article>)}</div>:<Empty text="No events yet. Add a decision, delay or field event."/>}</section></>
 }
 
 function PeopleCompanies({project,companies,people,refresh}:{project:Project;companies:Company[];people:Person[];refresh:()=>void}){
