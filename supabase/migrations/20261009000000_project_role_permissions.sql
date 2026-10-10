@@ -77,7 +77,7 @@ begin
  if target_org_role='owner' then return false; end if;
  select role into target_existing_role from public.project_access_grants
  where project_id=target_project and user_id=target_user;
- if current_role<>'owner' and (new_role='admin' or target_org_role='admin' or target_existing_role='admin') then return false; end if;
+ if actor_role<>'owner' and (new_role='admin' or target_org_role='admin' or target_existing_role='admin') then return false; end if;
  return true;
 end;
 $$;
