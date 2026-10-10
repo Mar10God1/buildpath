@@ -20,6 +20,9 @@
 .legend span{display:inline-flex;align-items:center;gap:5px}
 .legend i{height:8px;width:8px;border-radius:50%;display:inline-block;background:#a6aeb2}
 .legend .legendHistory{background:#6885aa}
+.legend .legendWeather{background:#3c91c8}
+.legend .legendInjury{background:#c23941}
+.legend .legendChange{background:#9268bb}
 .legend .legendImpact{background:#d76e40}
 .legend .legendToday{background:#ea761c}
 .legend .legendDone{background:var(--green)}
@@ -33,6 +36,15 @@
 .tick i{height:38px;border-left:1px dashed #dadfdf}
 .rail{position:absolute;top:78px;left:10%;right:10%;height:7px;border-radius:5px;background:#dce1e1;box-shadow:inset 0 1px 3px rgba(0,0,0,.07)}
 .railPast{display:block;height:100%;background:linear-gradient(90deg,#3b9c68,#7bb18b);border-radius:5px}
+.disruptionWindow{position:absolute;top:82px;z-index:1;pointer-events:none;border-left:2px solid var(--event-color,#d97836);background:var(--event-tint,rgba(216,117,47,.12));border-radius:0 0 3px 3px}
+.disruptionWindow:before{content:"!";position:absolute;top:-14px;left:-10px;width:18px;height:18px;display:grid;place-items:center;border:1px solid white;border-radius:50%;background:var(--event-color,#d97836);color:#fff;font-size:11px;font-weight:900;box-shadow:0 1px 4px #0002}
+.disruptionWindow:after{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:var(--event-color,#d97836);opacity:.75}
+.disruptionWindow[data-category="weather"]{--event-color:#388dc2;--event-tint:rgba(56,141,194,.13)}
+.disruptionWindow[data-category="weather"]:before{content:"☁"}
+.disruptionWindow[data-category="injury"]{--event-color:#c23941;--event-tint:rgba(194,57,65,.13)}
+.disruptionWindow[data-category="injury"]:before{content:"+"}
+.disruptionWindow[data-category="setback"]{--event-color:#d97836;--event-tint:rgba(217,120,54,.14)}
+.disruptionWindow[data-selected="true"]{outline:2px solid var(--event-color,#d97836);outline-offset:1px}
 .today{position:absolute;top:57px;bottom:16px;transform:translateX(-50%);pointer-events:none;z-index:2}
 .today b{display:block;font-size:9px;background:#e87524;color:white;padding:3px 6px;border-radius:4px;transform:translateX(-50%);white-space:nowrap}
 .today i{position:absolute;left:0;top:21px;bottom:0;border-left:2px dashed #e87524;opacity:.75}
@@ -53,10 +65,41 @@
 .marker[data-tone="late"] i{background:var(--red);box-shadow:0 0 0 1px #d05a51}
 .marker[data-tone="next"]{border-color:#ead197;background:#fffaf0}
 .marker[data-tone="next"] i{background:#e7a01d;box-shadow:0 0 0 1px #d89c2d}
+.markerGlyph{display:inline-block;font-size:13px;font-weight:900;margin-right:5px}
+.marker[data-category="weather"]{background:#ecf6fc;border-color:#83bcda}
+.marker[data-category="weather"] .markerType{color:#216f9c}
+.marker[data-category="weather"] i{background:#388dc2;box-shadow:0 0 0 1px #287da8}
+.marker[data-category="injury"]{background:#fff1f1;border-color:#e9a2a6}
+.marker[data-category="injury"] .markerType{color:#aa303c}
+.marker[data-category="injury"] i{background:#c23941;box-shadow:0 0 0 1px #a42c36}
+.marker[data-category="setback"]{background:#fff5eb;border-color:#e6ba96}
+.marker[data-category="setback"] .markerType{color:#a75521}
+.marker[data-category="setback"] i{background:#d97836;box-shadow:0 0 0 1px #ba6229}
+.marker[data-category="change"]{background:#f7f1fc;border-color:#d2bce7}
+.marker[data-category="change"] .markerType{color:#79529d}
+.marker[data-category="change"] i{background:#9268bb;box-shadow:0 0 0 1px #71539b}
+.marker[data-category="decision"]{background:#f0f9f6;border-color:#a9d6c6}
+.marker[data-category="decision"] .markerType{color:#297c5e}
+.marker[data-category="decision"] i{background:#45a180;box-shadow:0 0 0 1px #248060}
+.marker[data-category="milestone"][data-tone="planned"]{border-color:#dfc68d;background:#fffbef}
+.marker[data-category="milestone"] .markerType{color:#9f6b16}
+.marker[data-category="milestone"][data-tone="done"]{border-color:#a4d6b5;background:#f3fbf5}
+.marker[data-category="milestone"][data-tone="late"]{border-color:#eab0ac;background:#fff4f2}
+.impactFlag{display:inline-block;border-radius:4px;padding:3px 5px;margin-top:4px;background:#ffe3d0;color:#9c4d20;font-size:9px;font-weight:800}
+.marker[data-category="injury"] .impactFlag{background:#f8d9dc;color:#a52d38}
+.marker[data-category="weather"] .impactFlag{background:#d5edfb;color:#206e99}
 .marker:focus-visible,.marker[aria-pressed="true"]{outline:2px solid var(--orange);outline-offset:3px;z-index:4}
 .startCaption,.endCaption{position:absolute;top:96px;font-size:9px;color:#7d8587;white-space:nowrap}
 .startCaption{transform:translateX(-5%)}
 .endCaption{transform:translateX(-95%)}
+.disruptionOverview{display:flex;align-items:center;flex-wrap:wrap;gap:8px 17px;margin:0 0 8px;padding:10px 13px;background:#fff8f1;border:1px solid #e9d8c8;border-radius:6px;font-size:11px;color:#6a4f3d}
+.disruptionOverview>strong{color:#8d4d25;font-size:11px}
+.disruptionOverview>span{font-size:11px;white-space:nowrap}
+.disruptionOverview>small{margin-left:auto;font-size:10px;color:#787674}
+.detailCategory{display:inline-flex;align-items:center;gap:6px;align-self:start;padding:5px 7px;background:#f3f5f8;border-radius:4px;font-size:10px;text-transform:uppercase;font-weight:800;color:#607387}
+.detail[data-category="weather"] .detailCategory{background:#e3f2fb;color:#256e9a}
+.detail[data-category="injury"] .detailCategory{background:#ffe1e2;color:#a8313a}
+.detail[data-category="setback"] .detailCategory{background:#ffead9;color:#a4521e}
 .undated{margin-top:14px;padding:12px;border:1px dashed #c6c8c6;border-radius:7px;background:#faf9f6}
 .undated>strong{display:block;font-size:12px;color:#404849}
 .undated p{margin:4px 0 10px;font-size:10px;color:#72797b;line-height:1.4}
@@ -113,4 +156,6 @@
  .detail{flex-direction:column}
  .editor{grid-template-columns:1fr}
  .legend{gap:9px}
+ .disruptionOverview>small{margin-left:0;width:100%}
+ .marker{max-width:150px}
 }
