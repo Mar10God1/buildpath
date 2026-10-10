@@ -7,18 +7,8 @@ create table if not exists public.project_access_grants (
  permissions jsonb not null default '{}'::jsonb,
  assigned_by uuid references auth.users(id),
  updated_at timestamptz not null default now(),
- primary key (project_id,user_id),
- constraint valid_project_access_overrides check (
-   jsonb_typeof(permissions) = 'object' and
-   not (permissions ? 'manage_access') and
-   not exists (select 1 from jsonb_each(permissions) where
-     key not in ('view_project','view_timeline','edit_timeline','view_documents','upload_documents','view_costs','view_people','manage_people','view_field','submit_field','view_safety','manage_project','manage_vendors')
-     or jsonb_typeof(value) <> 'boolean')
- )
+ primary key (project_id,user_id)
 );
--- Note: PostgreSQL forbids subqueries in check constraints. The constraint above
--- is replaced by a validation trigger below.
-alter table public.project_access_grants drop constraint if exists valid_project_access_overrides;
 create or replace function private.valid_access_overrides(input jsonb)
 returns boolean language sql immutable set search_path='' as $$
  select input is not null and jsonb_typeof(input)='object'
