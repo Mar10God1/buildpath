@@ -127,7 +127,7 @@ export default function VendorsPage(){
  const w9=Math.min(vendors.length,compliant+Math.floor(pending*.6));
  const coi=Math.min(vendors.length,compliant+Math.floor(pending*.35));
  const compliancePct=vendors.length?Math.round((compliant/vendors.length)*100):0;
- return <div className="shell"><AppSidebar projectId={project.id} active="Vendors & Subs"/><main className="main standalone-page">
+ return <div className="shell"><AppSidebar projectId={project.id} active="Subs & Vendors"/><main className="main standalone-page">
   <div className="global-topbar"><div className="global-search">⌕ <span>Search vendors, contacts, trades, certifications, or projects...</span></div><div className="global-user"><span className="notify-dot">●</span><span className="user-avatar">MG</span><span><strong>BuildPath</strong><small>Project workspace</small></span></div></div>
   <header className="topbar" style={{backgroundImage:"linear-gradient(90deg,rgba(10,11,12,.88),rgba(10,11,12,.54) 55%,rgba(10,11,12,.35)),url("+JSON.stringify(heroImage||visual.image)+")"}}><div><p className="eyebrow">{visual.eyebrow}</p><h1>Vendors & Subs</h1><p>Manage subcontractors and suppliers for {project.name} in one place.</p></div></header>
   <div className="vendor-toolbar"><div className="segmented"><button className="active">All Vendors ({vendors.length})</button><button>Subcontractors ({vendors.filter(v=>v.vendor_type==="subcontractor").length})</button><button>Suppliers ({vendors.filter(v=>v.vendor_type==="vendor").length})</button><button>Onboarding ({pending})</button></div><button className="secondary-action">⇩ Export</button><button className="primary-action" onClick={()=>setMode(mode==="vendor"?null:"vendor")}>＋ Add Vendor</button></div>

@@ -25,14 +25,14 @@ const initial: FormState = {
   address: "",
   city: "Austin",
   state: "TX",
-  projectType: "Commercial",
+  projectType: "Residential - Custom home",
   owner: "",
   generalContractor: "",
   startDate: "",
   targetFinish: "",
   budget: "",
-  userRole: "owner_developer",
-  projectStage: "planning",
+  userRole: "builder",
+  projectStage: "construction",
   constructionMode: "new_construction",
   fundingType: "private",
 };
@@ -132,7 +132,7 @@ export function ProjectSetup() {
       project_id: newProjectId,
       user_id: user.id,
       user_role: form.userRole,
-      field_capture_default: ["superintendent","subcontractor"].includes(form.userRole),
+      field_capture_default: ["superintendent","field_lead","builder","subcontractor"].includes(form.userRole),
       updated_at: new Date().toISOString(),
     }, { onConflict: "project_id,user_id" });
 
@@ -165,6 +165,14 @@ export function ProjectSetup() {
       }
     }
 
+    if (form.owner) {
+      // Best effort: the clients table arrives with the small-builder migration.
+      const client = await supabase.from("clients").insert({ organization_id: organizationId, name: form.owner, created_by: user.id }).select("id").single();
+      if (!client.error && client.data) {
+        await supabase.from("projects").update({ client_id: client.data.id }).eq("id", newProjectId);
+      }
+    }
+
     setProjectId(newProjectId);
     setSaved(true);
     setBusy(false);
@@ -178,10 +186,13 @@ export function ProjectSetup() {
     return (
       <main className="setup-shell">
         <section className="setup-card setup-complete">
-          <span className="setup-kicker">PROJECT CREATED</span>
-          <h1>{form.name || "Your project"} now has a project memory.</h1>
-          <p>Its baseline, organization and initial companies are stored in the separate BuildPath database. Next we can ingest schedules, documents, meetings and field evidence into this project.</p>
-          <a className="primary-action" href={`/?project=${projectId}`}>Open project overview</a>
+          <span className="setup-kicker">JOB CREATED</span>
+          <h1>{form.name || "Your job"} is ready.</h1>
+          <p>Start capturing from the site: photos, voice notes, receipts and deliveries. BuildPath turns them into daily logs and drafts change orders when the client asks for something new.</p>
+          <div className="setup-actions">
+            <a className="primary-action" href={`/field?project=${projectId}`}>Start capturing on site</a>
+            <a className="secondary-action" href={`/?project=${projectId}`}>Open the job</a>
+          </div>
         </section>
       </main>
     );
@@ -192,9 +203,9 @@ export function ProjectSetup() {
       <section className="setup-card">
         <div className="setup-header">
           <div>
-            <span className="setup-kicker">NEW PROJECT</span>
-            <h1>Give BuildPath the project baseline.</h1>
-            <p>Start with what you know. Missing information can be filled in later from project evidence.</p>
+            <span className="setup-kicker">NEW JOB</span>
+            <h1>Set up a job in about a minute.</h1>
+            <p>Start with what you know. Everything else can be filled in later, or picked up from your photos, notes and documents.</p>
           </div>
           <div className="setup-progress"><strong>{progress}%</strong><span>Step {step} of 4</span></div>
         </div>
@@ -203,13 +214,23 @@ export function ProjectSetup() {
 
         {step === 1 && (
           <div className="form-grid">
-            <label className="wide">Project name<input value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="Riverside Medical Office" /></label>
-            <label className="wide">Project address<input value={form.address} onChange={(e) => update("address", e.target.value)} placeholder="1200 Riverside Dr" /></label>
+            <label className="wide">Job name<input value={form.name} onChange={(e) => update("name", e.target.value)} placeholder="Martinez kitchen remodel" /></label>
+            <label className="wide">Job address<input value={form.address} onChange={(e) => update("address", e.target.value)} placeholder="4512 Oak Hollow Dr" /></label>
             <label>City<input value={form.city} onChange={(e) => update("city", e.target.value)} /></label>
             <label>State<input value={form.state} onChange={(e) => update("state", e.target.value)} /></label>
-            <label className="wide">Project type
+            <label className="wide">Type of job
               <select value={form.projectType} onChange={(e) => update("projectType", e.target.value)}>
-                <option>Residential</option><option>Multifamily</option><option>Commercial</option><option>Industrial</option><option>Healthcare</option><option>Education</option><option>Hospitality</option><option>Civic / Public</option><option>Infrastructure</option><option>Other</option>
+                <optgroup label="Most common">
+                  <option value="Residential - Custom home">Custom home</option>
+                  <option value="Residential - Remodel">Remodel / renovation</option>
+                  <option value="Residential - Addition">Addition</option>
+                  <option value="Commercial - Light / tenant finish">Light commercial / tenant finish-out</option>
+                  <option value="Specialty trade">Specialty trade work</option>
+                </optgroup>
+                <optgroup label="Larger projects">
+                  <option>Multifamily</option><option>Commercial</option><option>Industrial</option><option>Healthcare</option><option>Education</option><option>Hospitality</option><option>Civic / Public</option><option>Infrastructure</option>
+                </optgroup>
+                <option>Other</option>
               </select>
             </label>
           </div>
@@ -217,23 +238,23 @@ export function ProjectSetup() {
 
         {step === 2 && (
           <div className="form-grid">
-            <label className="wide">Your role on this project<select value={form.userRole} onChange={(e)=>update("userRole",e.target.value)}><option value="owner_developer">Owner / Developer</option><option value="general_contractor">General Contractor</option><option value="construction_manager">Construction Manager</option><option value="project_manager">Project Manager</option><option value="superintendent">Superintendent / Field</option><option value="finance_controller">Finance / Controller</option><option value="architect_engineer">Architect / Engineer</option><option value="subcontractor">Subcontractor / Vendor</option><option value="other">Other</option></select></label>
-            <label className="wide">Owner / Developer<input value={form.owner} onChange={(e) => update("owner", e.target.value)} placeholder="Owner organization" /></label>
-            <label className="wide">General contractor<input value={form.generalContractor} onChange={(e) => update("generalContractor", e.target.value)} placeholder="General contractor" /></label>
-            <div className="setup-note wide"><span>CONNECTED MODEL</span><p>Companies and people become reusable records. Later, emails, RFIs, change orders and meetings can all connect back to the same company or person instead of creating duplicate data.</p></div>
+            <label className="wide">Your role on this job<select value={form.userRole} onChange={(e)=>update("userRole",e.target.value)}><option value="builder">Builder / company owner</option><option value="office_manager">Office manager / admin</option><option value="field_lead">Field lead / site super</option><option value="owner_developer">Owner / Developer</option><option value="general_contractor">General Contractor</option><option value="construction_manager">Construction Manager</option><option value="project_manager">Project Manager</option><option value="superintendent">Superintendent / Field</option><option value="finance_controller">Finance / Controller</option><option value="architect_engineer">Architect / Engineer</option><option value="subcontractor">Subcontractor / Vendor</option><option value="other">Other</option></select></label>
+            <label className="wide">Client<input value={form.owner} onChange={(e) => update("owner", e.target.value)} placeholder="Homeowner or owner, e.g. Sarah Martinez" /></label>
+            <label className="wide">Your company<input value={form.generalContractor} onChange={(e) => update("generalContractor", e.target.value)} placeholder="Your building company" /></label>
+            <div className="setup-note wide"><span>ONE RECORD PER CLIENT</span><p>Change orders, approvals, texts and emails all connect back to the same client, so you always know who asked for what and when.</p></div>
           </div>
         )}
 
         {step === 3 && (
           <div className="form-grid">
-            <label>Project stage<select value={form.projectStage} onChange={(e)=>update("projectStage",e.target.value)}><option value="planning">Planning</option><option value="design">Design</option><option value="preconstruction">Preconstruction</option><option value="procurement">Procurement</option><option value="construction">Construction</option><option value="commissioning">Commissioning</option><option value="closeout">Closeout</option></select></label>
+            <label>Project stage<select value={form.projectStage} onChange={(e)=>update("projectStage",e.target.value)}><option value="planning">Bidding / planning</option><option value="design">Design / selections</option><option value="preconstruction">Permitting / preconstruction</option><option value="construction">Under construction</option><option value="closeout">Punch list / closeout</option><option value="procurement">Procurement</option><option value="commissioning">Commissioning</option></select></label>
             <label>Type of work<select value={form.constructionMode} onChange={(e)=>update("constructionMode",e.target.value)}><option value="new_construction">New construction</option><option value="renovation">Renovation</option><option value="tenant_improvement">Tenant improvement</option><option value="addition">Addition</option><option value="remediation">Remediation</option><option value="capital_improvement">Capital improvement / maintenance</option></select></label>
-            <label className="wide">Funding / ownership<select value={form.fundingType} onChange={(e)=>update("fundingType",e.target.value)}><option value="private">Private</option><option value="public">Public / government</option><option value="mixed">Mixed / public-private</option></select></label>
-            <div className="setup-note wide"><span>KEEP IT RELEVANT</span><p>These answers tell BuildPath which workflows matter. Irrelevant sections stay out of the way and can still be added later if the job changes.</p></div>
+            <label className="wide">Who's paying<select value={form.fundingType} onChange={(e)=>update("fundingType",e.target.value)}><option value="private">Private client</option><option value="public">Public / government</option><option value="mixed">Mixed / public-private</option></select></label>
+            <div className="setup-note wide"><span>KEEP IT RELEVANT</span><p>This keeps BuildPath simple: you only see the tools this job needs. You can add more later if the job changes.</p></div>
           </div>
         )}
 
-        {step === 4 && (<div className="form-grid"><label>Baseline start<input type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)} /></label><label>Target completion<input type="date" value={form.targetFinish} onChange={(e) => update("targetFinish", e.target.value)} /></label><label className="wide">Original budget<input value={form.budget} onChange={(e) => update("budget", e.target.value)} placeholder="$12,400,000" /></label><div className="setup-note wide"><span>ADAPTIVE WORKSPACE</span><p>BuildPath will start with only the modules that fit this project and your role. You can change any recommendation later.</p></div></div>)}
+        {step === 4 && (<div className="form-grid"><label>Start date<input type="date" value={form.startDate} onChange={(e) => update("startDate", e.target.value)} /></label><label>Target completion<input type="date" value={form.targetFinish} onChange={(e) => update("targetFinish", e.target.value)} /></label><label className="wide">Contract amount<input value={form.budget} onChange={(e) => update("budget", e.target.value)} placeholder="$485,000" /></label><div className="setup-note wide"><span>CHANGE ORDERS ROLL UP</span><p>Approved change orders are added on top of the contract amount automatically, so you always know where the job stands.</p></div></div>)}
 
         {error && <div className="form-message">{error}</div>}
 
@@ -241,7 +262,7 @@ export function ProjectSetup() {
           <button className="secondary-action" onClick={() => step === 1 ? window.location.assign("/") : setStep((s) => Math.max(1, s - 1))}>{step === 1 ? "Cancel" : "Back"}</button>
           {step < 4
             ? <button className="primary-action" onClick={() => setStep((s) => Math.min(4, s + 1))}>Continue</button>
-            : <button className="primary-action" onClick={finish} disabled={busy}>{busy ? "Creating…" : "Create project"}</button>}
+            : <button className="primary-action" onClick={finish} disabled={busy}>{busy ? "Creating…" : "Create job"}</button>}
         </div>
       </section>
     </main>

@@ -91,9 +91,15 @@ export default function UploadExtractPage(){
   if(status==="accepted"&&candidate.candidate_type==="person"){
    const v=candidate.proposed_value;
    const email=typeof v.email==="string"?v.email.trim().toLowerCase():"";
+   const fullName=typeof v.name==="string"?v.name.trim():"";
+   const [first,...rest]=fullName.split(/\s+/);
+   const named={first_name:first||null,last_name:rest.join(" ")||null,title:typeof v.role==="string"?v.role:null};
    if(email){
     const existing=await s.from("people").select("id").eq("organization_id",project.organization_id).ilike("email",email).limit(1);
-    if(!existing.data?.length)await s.from("people").insert({organization_id:project.organization_id,email});
+    if(!existing.data?.length)await s.from("people").insert({organization_id:project.organization_id,email,...named});
+   }else if(fullName){
+    const existing=await s.from("people").select("id").eq("organization_id",project.organization_id).ilike("first_name",first).ilike("last_name",rest.join(" ")||"%").limit(1);
+    if(!existing.data?.length)await s.from("people").insert({organization_id:project.organization_id,...named});
    }
   }
   if(status==="accepted"&&candidate.candidate_type==="requirement"){
@@ -102,15 +108,24 @@ export default function UploadExtractPage(){
    const label=typeof v.label==="string"?v.label:key.replaceAll("_"," ");
    await s.from("project_requirements").upsert({project_id:project.id,requirement_key:key,label,enabled:true,source:"document",notes:"Detected from uploaded project evidence",updated_at:new Date().toISOString()},{onConflict:"project_id,requirement_key"});
   }
+  if(status==="accepted"&&candidate.candidate_type==="change_request"){
+   const v=candidate.proposed_value;
+   const num=await s.rpc("next_change_order_number",{p_project_id:project.id});
+   const amount=typeof v.amount==="number"?v.amount:null;
+   const ins=await s.from("change_orders").insert({project_id:project.id,number:num.data||1,title:typeof v.title==="string"?v.title:"Change from document",description:typeof v.detail==="string"?v.detail:null,reason:"Found in "+(typeof v.source==="string"?v.source:"an uploaded document"),line_items:amount!=null?[{description:typeof v.title==="string"?v.title:"Change",quantity:1,unit:"ls",unit_price:amount,amount}]:[],amount,status:"draft",source_text:typeof v.detail==="string"?v.detail:null,ai_generated:true});
+   if(ins.error){setMsg(ins.error.message);return}
+   setMsg("Draft change order created. Review it under Change Orders.");
+  }
   await s.from("extraction_candidates").update({status,reviewed_at:new Date().toISOString()}).eq("id",candidate.id);
   await load();
  }
 
  function summary(c:Candidate){
   const v=c.proposed_value;
-  for(const key of ["summary","description","email","amount_text","vendor_name","date"]){
-   const val=v[key];if(typeof val==="string")return val;
+  for(const key of ["summary","description","detail","email","amount_text","vendor_name","date"]){
+   const val=v[key];if(typeof val==="string")return val+(typeof v.what==="string"&&key!=="summary"?" — "+v.what:"");
   }
+  if(typeof v.name==="string")return [v.name,v.role,v.company].filter(x=>typeof x==="string").join(" · ");
   if(typeof v.amount==="number")return new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(v.amount);
   return JSON.stringify(v);
  }
@@ -118,8 +133,8 @@ export default function UploadExtractPage(){
  if(!project)return <main className="setup-shell"><section className="setup-card">Loading…</section></main>;
  const visual=getProjectVisual(project.project_type);
  return <div className="shell"><AppSidebar projectId={project.id} active="Upload & Extract"/><main className="main standalone-page">
-  <div className="global-topbar"><div className="global-search">⌕ <span>Search projects, documents, subs, or ask anything...</span></div><div className="global-user"><span className="notify-dot">●</span><span className="user-avatar">MG</span><span><strong>BuildPath</strong><small>Project workspace</small></span></div></div>
-  <header className="topbar compact-project-hero" style={{backgroundImage:"linear-gradient(90deg,rgba(10,11,12,.88),rgba(10,11,12,.54) 55%,rgba(10,11,12,.35)),url("+JSON.stringify(heroImage||visual.image)+")"}}><div><p className="eyebrow">{visual.eyebrow}</p><h1>Upload & Extract</h1><p>Turn {project.name} documents into connected project intelligence.</p></div><a className="secondary-action" href={"/?project="+project.id}>View Project →</a></header>
+  <div className="global-topbar"><div className="global-search">⌕ <span>Search jobs, documents, subs, or ask anything...</span></div><div className="global-user"><span className="notify-dot">●</span><span className="user-avatar">MG</span><span><strong>BuildPath</strong><small>Project workspace</small></span></div></div>
+  <header className="topbar compact-project-hero" style={{backgroundImage:"linear-gradient(90deg,rgba(10,11,12,.88),rgba(10,11,12,.54) 55%,rgba(10,11,12,.35)),url("+JSON.stringify(heroImage||visual.image)+")"}}><div><p className="eyebrow">{visual.eyebrow}</p><h1>Upload & Extract</h1><p>Drop in contracts, invoices, emails and permits. BuildPath pulls out dates, costs, people and change requests for you to review.</p></div><a className="secondary-action" href={"/?project="+project.id}>View Project →</a></header>
   <div className="ingestion-steps"><div className="active"><b>1</b><span><strong>Upload</strong><small>Add project documents</small></span></div><div className={uploading?"active":""}><b>2</b><span><strong>Extract</strong><small>AI analyzes content</small></span></div><div className={candidates.length?"active":""}><b>3</b><span><strong>Review</strong><small>Verify and organize</small></span></div><div><b>4</b><span><strong>Complete</strong><small>Add to project records</small></span></div></div>
   {msg&&<div className="form-message">{msg}</div>}
 
