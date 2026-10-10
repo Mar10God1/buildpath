@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { FieldAccess } from "@/components/field-access";
 import { PROJECT_PERMISSION_KEYS, PERMISSION_LABELS, ROLE_LABELS, roleDefault, type ProjectPermission, type ProjectRole } from "@/lib/buildpath-permissions";
 
 type Member = { user_id:string; email:string|null; membership_type:string; organization_role:string|null; project_role:ProjectRole; permissions:Record<string,boolean> };
@@ -62,7 +63,7 @@ export function ProjectAccessAdmin({projectId}:{projectId:string}){
   return <section className="panel page-panel" style={{marginBottom:12}}>
     <div className="panel-title">
       <div><p className="eyebrow">PROJECT SECURITY</p><h3>Access & roles</h3></div>
-      <span className="status-chip">Administrator controlled</span>
+      <button className="secondary-action" type="button" onClick={()=>void load()}>Refresh members ↻</button>
     </div>
     <p className="panel-copy">Give each project team member only the access needed for their work. Role presets can be adjusted per member. Changes are enforced by project database permissions for protected modules. Organization owners keep full access.</p>
     {loading&&<p className="panel-copy">Loading project team…</p>}
@@ -106,7 +107,8 @@ export function ProjectAccessAdmin({projectId}:{projectId:string}){
           </div>}
         </article>;
       })}
-      {!members.length&&<p className="panel-copy">No eligible members are currently associated with this project. Add teammates through your organization's existing invitation workflow before assigning access.</p>}
+      {!members.length&&<p className="panel-copy">No other members have joined this project yet. Invite a teammate below, then refresh to assign their role and permissions.</p>}
     </div>}
+    <div style={{borderTop:"1px solid #e0e2df",marginTop:18,paddingTop:16}}><h4 style={{margin:"0 0 6px",fontSize:13}}>Invite a project collaborator</h4><p className="panel-copy">Use a project field invite to get the teammate connected. Once they accept, refresh the member list above and assign a broader role such as superintendent, project manager, safety, or finance. Grant only the access they need.</p><FieldAccess projectId={projectId}/></div>
   </section>;
 }
