@@ -12,6 +12,34 @@ type Event = {
 };
 type Milestone = Event & { planned: string | null; actual: string | null; complete: boolean };
 type Tone = "done" | "late" | "next" | "planned" | "unknown";
+type EventCategory = "milestone" | "weather" | "injury" | "setback" | "change" | "decision" | "field" | "meeting" | "general";
+
+function categoryForEvent(e: Event): EventCategory {
+  const type = e.event_type.toLowerCase().replaceAll("-", "_").replaceAll(" ", "_");
+  const label = e.title.toLowerCase();
+  if (type === "milestone") return "milestone";
+  if (/(injury|injur|accident|safety|incident)/.test(type) || /\b(work(er|place)? injury|injured worker|jobsite accident|workplace accident|lost.time incident)\b/.test(label)) return "injury";
+  if (/(weather|storm|rain|snow|flood)/.test(type) || /\b(weather delay|storm delay|heavy rain|snow storm|flooding)\b/.test(label)) return "weather";
+  if (Number(e.schedule_impact_days) > 0 || /(delay|setback|disruption|blocker|risk|issue)/.test(type)) return "setback";
+  if (/(change|rfi)/.test(type)) return "change";
+  if (/(decision|approval)/.test(type)) return "decision";
+  if (/(field|inspection|work)/.test(type)) return "field";
+  if (/(meeting|call)/.test(type)) return "meeting";
+  return "general";
+}
+const categoryName: Record<EventCategory, string> = {
+  milestone: "Milestone", weather: "Weather", injury: "Safety / injury",
+  setback: "Schedule setback", change: "Change", decision: "Decision",
+  field: "Field work", meeting: "Meeting", general: "Project event",
+};
+const categoryGlyph: Record<EventCategory, string> = {
+  milestone: "◆", weather: "☁", injury: "✚", setback: "!", change: "⇄",
+  decision: "✓", field: "▤", meeting: "◉", general: "•",
+};
+function isDisruption(e: Event, kind: EventCategory) {
+  return kind === "weather" || kind === "injury" || kind === "setback";
+}
+
 
 const datePart = (s: string | null | undefined) => {
   const result = s?.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
@@ -61,9 +89,14 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
     event: e,
     date: datePart(e.start_at) || datePart(e.end_at),
     milestone: milestones.find(m => m.id === e.id) || null,
+    category: categoryForEvent(e),
   })).sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999") || a.event.title.localeCompare(b.event.title));
   const plottedEvents = timelineItems.filter((item): item is typeof item & {date: string} => item.date !== null);
   const undatedEvents = timelineItems.filter(item => !item.date);
+  const disruptions = plottedEvents.filter(item => isDisruption(item.event, item.category));
+  const weatherCount = events.filter(e => categoryForEvent(e) === "weather").length;
+  const safetyCount = events.filter(e => categoryForEvent(e) === "injury").length;
+  const setbackCount = events.filter(e => categoryForEvent(e) === "setback").length;
   const dated = milestones.filter(m => m.planned !== null);
   const completed = milestones.filter(m => m.complete).length;
   const overdue = milestones.filter(m => !m.complete && m.planned && today && m.planned < today);
@@ -188,16 +221,23 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
     const title = String(f.get("title") || "").trim();
     const recordedDate = String(f.get("date") || "");
     const impact = String(f.get("impact") || "").trim();
+    const endingDate = String(f.get("endingDate") || "");
+    const eventType = String(f.get("eventType") || "").trim();
     if (!title || (recordedDate && !datePart(recordedDate))) {
       setError("Enter an event title and a valid date, or leave the date blank if unknown.");
       return;
+    }
+    if (!eventType || (endingDate && (!datePart(endingDate) || !recordedDate || endingDate < recordedDate))) {
+      setError("Select an event type and make sure the end date is on or after its start."); return;
     }
     if (impact && !Number.isFinite(Number(impact))) { setError("Enter a valid schedule impact."); return; }
     setSaving(true); setError("");
     const result = await createClient().from("project_events").update({
       title,
+      event_type: eventType,
       description: String(f.get("description") || "").trim() || null,
       start_at: recordedDate ? recordedDate + "T12:00:00" : null,
+      end_at: endingDate ? endingDate + "T12:00:00" : null,
       date_precision: recordedDate ? "day" : "unknown",
       schedule_impact_days: impact ? Number(impact) : null,
     }).eq("id", existing.id).eq("project_id", project.id);
@@ -209,7 +249,11 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
   function historyEventForm(existing: Event) {
     return <form className={styles.editor} onSubmit={e => saveHistoryEvent(e, existing)}>
       <label>Event title <input name="title" defaultValue={existing.title} required /></label>
-      <label>Event date <input name="date" type="date" defaultValue={datePart(existing.start_at) || datePart(existing.end_at) || ""} /></label>
+      <label>Event type <input name="eventType" list="buildpath-event-types" required defaultValue={existing.event_type} />
+        <datalist id="buildpath-event-types"><option value="weather"/><option value="weather_delay"/><option value="work_injury"/><option value="safety_incident"/><option value="delay"/><option value="change"/><option value="decision"/><option value="field"/><option value="meeting"/><option value="schedule"/></datalist>
+      </label>
+      <label>Event start date <input name="date" type="date" defaultValue={datePart(existing.start_at) || datePart(existing.end_at) || ""} /></label>
+      <label>End date (if known) <input name="endingDate" type="date" defaultValue={datePart(existing.end_at) || ""} /></label>
       <label>Schedule impact (days) <input name="impact" type="number" defaultValue={existing.schedule_impact_days ?? ""} /></label>
       <label className={styles.full}>Notes <textarea name="description" rows={3} defaultValue={existing.description || ""}/></label>
       <div className={styles.formActions}><button className="primary-action" disabled={saving} type="submit">{saving ? "Saving..." : "Save event"}</button><button className="secondary-action" type="button" onClick={() => { setEditing(null); setError(""); }}>Cancel</button></div>
@@ -238,6 +282,13 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
       <div><span>Baseline</span><strong>{baselineStart ? shortDate(baselineStart) : "Not set"} → {baselineFinish ? shortDate(baselineFinish) : "Not set"}</strong><small>{elapsed !== null ? elapsed + "% of baseline time elapsed" : "Use Edit baseline to set both dates"}</small></div>
       <div><span>Milestones</span><strong>{completed} / {milestones.length} completed</strong><small>{overdue.length} overdue · {lateDone.length} completed late</small></div>
     </div>
+    {(disruptions.length > 0 || weatherCount || safetyCount || setbackCount) && <div className={styles.disruptionOverview} aria-label="Recorded disruptions">
+      <strong><span aria-hidden="true">⚑</span> Recorded disruptions</strong>
+      <span><b>{weatherCount}</b> weather</span>
+      <span><b>{safetyCount}</b> safety / injury</span>
+      <span><b>{setbackCount}</b> other setbacks</span>
+      <small>Flags mark recorded events; bands show only documented event date ranges.</small>
+    </div>}
 
     {editingBaseline && <form className={styles.editor} onSubmit={saveBaseline}>
       <label>Baseline start <input type="date" name="baselineStart" required defaultValue={baselineStart || ""} /></label>
@@ -247,7 +298,7 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
     {adding && form()}
     {error && <div role="alert" className="form-message">{error}</div>}
 
-    <div className={styles.legend}><span><i className={styles.legendHistory} />Project event</span><span><i className={styles.legendImpact} />Reported delay</span><span><i className={styles.legendToday} />Today</span><span><i className={styles.legendDone} />Completed</span><span><i className={styles.legendLate} />Behind</span><span><i className={styles.legendNext} />Due soon</span><span><i className={styles.legendPlanned} />Upcoming</span></div>
+    <div className={styles.legend}><span><i className={styles.legendWeather} />☁ Weather</span><span><i className={styles.legendInjury} />✚ Safety / injury</span><span><i className={styles.legendImpact} />! Setback</span><span><i className={styles.legendChange} />Change</span><span><i className={styles.legendHistory} />Other events</span><span><i className={styles.legendToday} />Today</span><span><i className={styles.legendDone} />Completed</span><span><i className={styles.legendLate} />Behind</span><span><i className={styles.legendNext} />Due soon</span><span><i className={styles.legendPlanned} />Upcoming</span></div>
     <div className={styles.scroller} tabIndex={0} aria-label="Scrollable project timeline showing every dated project event and milestone">
       <div className={styles.canvas} style={{ width: canvasWidth, height: plotHeight }}>
         {Array.from({ length: 7 }, (_, i) => {
@@ -256,14 +307,32 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
           return <div className={styles.tick} key={i} style={{ left: pct + "%" }}><span>{shortDate(date)}</span><i /></div>;
         })}
         <div className={styles.rail}><span className={styles.railPast} style={{ width: (todayPos !== null ? Math.max(0, Math.min(100, (todayPos - 10) / 80 * 100)) : 0) + "%" }} /></div>
+        {disruptions.map(({event, date, category}) => {
+          const endDate = datePart(event.end_at);
+          const isRange = Boolean(endDate && endDate > date && event.event_type.toLowerCase() !== "milestone");
+          const startPos = x(date);
+          const endPos = isRange ? x(endDate!) : startPos;
+          return <div key={"setback-" + event.id}
+            className={styles.disruptionWindow} data-category={category} data-selected={selected === event.id}
+            style={{left: startPos + "%", width: isRange ? Math.max(0.3, endPos - startPos) + "%" : "12px", height: plotHeight - 82}}
+            title={categoryName[category] + ": " + event.title + " (" + labelDate(date) + (isRange ? " – " + labelDate(endDate) : "") + ")"} aria-hidden="true"/>;
+        })}
         {today && <div className={styles.today} style={{ left: todayPos + "%" }}><b>Today</b><i /></div>}
-        {markers.map(({ event, date, milestone, position, lane }) => {
+        {markers.map(({ event, date, milestone, category, position, lane }) => {
           const tone = milestone ? toneOf(milestone, today) : Number(event.schedule_impact_days) > 0 ? "impact" : "event";
           const dateLabel = milestone ? "Planned: " + labelDate(date) : labelDate(date);
-          return <button type="button" key={event.id} className={styles.marker} data-kind={milestone ? "milestone" : "event"} data-tone={tone} aria-pressed={selected === event.id}
-            style={{ left: position + "%", top: 108 + lane * 65, "--lead": (27 + lane * 65) + "px" } as CSSProperties}
-            onClick={() => { setSelected(selected === event.id ? null : event.id); setEditing(null); }} title={event.title + " — " + event.event_type + " — " + dateLabel}>
-            <i /><span className={styles.markerType}>{milestone ? "◆ Milestone" : event.event_type.replaceAll("_", " ")}</span><strong>{event.title}</strong><small>{dateLabel}</small>
+          const endDate = !milestone ? datePart(event.end_at) : null;
+          const dateSpan = endDate && endDate > date ? " – " + labelDate(endDate) : "";
+          return <button type="button" key={event.id} className={styles.marker}
+            data-kind={milestone ? "milestone" : "event"} data-category={category} data-tone={tone} aria-pressed={selected === event.id}
+            style={{ left: position + "%", top: 118 + lane * 65, "--lead": (37 + lane * 65) + "px" } as CSSProperties}
+            onClick={() => { setSelected(selected === event.id ? null : event.id); setEditing(null); }}
+            title={categoryName[category] + ": " + event.title + " — " + dateLabel + dateSpan + (Number(event.schedule_impact_days) > 0 ? " · Reported impact: " + event.schedule_impact_days + " days" : "")}>
+            <i />
+            <span className={styles.markerType}><b className={styles.markerGlyph} aria-hidden="true">{categoryGlyph[category]}</b>{categoryName[category]}</span>
+            <strong>{event.title}</strong>
+            <small>{dateLabel}{dateSpan}</small>
+            {Number(event.schedule_impact_days) > 0 && <span className={styles.impactFlag}>+{event.schedule_impact_days}d reported impact</span>}
           </button>;
         })}
         
@@ -280,11 +349,12 @@ export function ProjectScheduleTimeline({ project, events, refresh }: { project:
       )}</div>
     </div>}
 
-    {selectedEvent && !selectedMilestone && <div className={styles.detail}>
+    {selectedEvent && !selectedMilestone && <div className={styles.detail} data-category={categoryForEvent(selectedEvent)}>
+      <span className={styles.detailCategory}><b aria-hidden="true">{categoryGlyph[categoryForEvent(selectedEvent)]}</b> {categoryName[categoryForEvent(selectedEvent)]}</span>
       <div>
         <strong>{selectedEvent.title}</strong>
         <p>{selectedEvent.description || "No description recorded."}</p>
-        <small>{selectedEvent.event_type.replaceAll("_", " ")} · {labelDate(datePart(selectedEvent.start_at) || datePart(selectedEvent.end_at))}{selectedEvent.status ? " · " + selectedEvent.status : ""}
+        <small>{selectedEvent.event_type.replaceAll("_", " ")} · {labelDate(datePart(selectedEvent.start_at) || datePart(selectedEvent.end_at))}{datePart(selectedEvent.end_at) && datePart(selectedEvent.start_at) && datePart(selectedEvent.end_at)! > datePart(selectedEvent.start_at)! ? " – " + labelDate(datePart(selectedEvent.end_at)) : ""}{selectedEvent.status ? " · " + selectedEvent.status : ""}
           {selectedEvent.schedule_impact_days != null ? " · Schedule impact: " + selectedEvent.schedule_impact_days + " days" : ""}
           {selectedEvent.cost_impact != null ? " · Cost impact: $" + Number(selectedEvent.cost_impact).toLocaleString("en-US") : ""}
         </small>
