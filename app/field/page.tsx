@@ -32,6 +32,7 @@ export default function FieldCapturePage(){
  const[msg,setMsg]=useState("");
  const[busy,setBusy]=useState(false);
  const[recording,setRecording]=useState(false);
+ const[shareLocation,setShareLocation]=useState(false);
  const recorder=useRef<MediaRecorder|null>(null);
  const speech=useRef<any>(null);
  const chunks=useRef<Blob[]>([]);
@@ -92,7 +93,7 @@ export default function FieldCapturePage(){
   if(!project)return;
   if(!file&&!notes.trim()&&!title.trim()){setMsg("Add a photo, file, voice recording, or note first.");return}
   setBusy(true);setMsg("");const s=createClient();const auth=await s.auth.getUser();const user=auth.data.user;
-  const location=await currentLocation();
+  const location=shareLocation?await currentLocation():null;
   if(!user){window.location.href="/login";return}
   let storagePath:string|null=null;
   if(file){
@@ -125,7 +126,7 @@ export default function FieldCapturePage(){
    if(processed.ok){processingMessage=(body.candidateCount||0)>0?"Captured. BuildPath found "+String(body.candidateCount)+" proposed facts for review.":"Captured. No additional structured facts were detected."}
    else processingMessage="Captured successfully. Automatic processing is queued for later review.";
   }
-  setTitle("");setNotes("");setAmount("");setVendor("");setFile(null);setMsg(processingMessage);setBusy(false);await load();
+  setTitle("");setNotes("");setAmount("");setVendor("");setFile(null);setShareLocation(false);setMsg(processingMessage);setBusy(false);await load();
  }
 
  if(!project)return <main className="field-shell"><div className="field-loading">Loading field capture…</div></main>;
@@ -144,6 +145,7 @@ export default function FieldCapturePage(){
     {(type==="receipt"||type==="invoice")&&<div className="capture-two"><input value={vendor} onChange={e=>setVendor(e.target.value)} placeholder="Vendor / merchant"/><input value={amount} onChange={e=>setAmount(e.target.value)} inputMode="decimal" placeholder="Amount"/></div>}
     <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder={type==="incident"?"Describe what happened, who was involved, and any immediate action taken…":type==="weather"?"What weather conditions occurred? Was work delayed or stopped? For how long?":type==="delay"?"What work was impacted, why, and how many days (if known)?":"Add a quick note or description…"} />
 
+    <label style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#6d7379",marginTop:10}}><input type="checkbox" checked={shareLocation} onChange={e=>setShareLocation(e.target.checked)}/> Include optional location with this field report</label>
     <div className="capture-media">
      <label className="capture-upload"><input type="file" accept={type==="voice_note"?"audio/*":type==="receipt"||type==="invoice"||type==="progress"||type==="safety"||type==="delivery"?"image/*,application/pdf":"image/*,audio/*,application/pdf"} capture={type==="voice_note"?undefined:"environment"} onChange={e=>setFile(e.target.files?.[0]||null)}/><b>＋</b><span>{file?file.name:(type==="voice_note"?"Attach audio":"Take photo or choose file")}</span></label>
      <button className={recording?"record-button recording":"record-button"} onClick={recording?stopRecording:startRecording}>{recording?"■ Stop recording":"● Record voice note"}</button>
