@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:conversations": "node --experimental-strip-types --test tests/conversation-intelligence.test.mjs"
+    "test:conversations": "node --experimental-strip-types --test tests/conversation-intelligence.test.mjs",
+    "test:verticals": "node --experimental-strip-types --no-warnings --import ./tests/resolve-ts.mjs --test tests/verticals-engines.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

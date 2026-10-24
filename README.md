@@ -66,3 +66,7 @@ See:
 - `docs/CONSULTATIONPATH_SAFE_PILOT.md`
 
 **Cost guardrail:** do not enable paid infrastructure, subscriptions, or usage-based third-party services without explicit owner approval.
+
+## RestorePath, LeasePath and EventPath
+
+Three more separately branded products on the same engine: insurance restoration (`/restorepath`), small property management (`/leasepath`) and event/wedding planning (`/eventpath`), with a hub at `/paths`. They borrow LifePath's evidence, uncertainty and per-person sharing model. They currently run in demo mode on browser-stored sample data and need no migration. See `docs/VERTICALS.md`.
