@@ -1,6 +1,6 @@
 # BuildPath — working rules
 
-BuildPath (construction, aimed at small builders, remodelers and specialty contractors) and ConsultationPath (independent consultants) share this repo, one Next.js app on Vercel and one Supabase project (`cdlhqovdfiolkpfzbtqu`).
+BuildPath (construction, aimed at small builders, remodelers and specialty contractors) and ConsultationPath (independent consultants) share this repo, along with the demo-mode verticals RestorePath, LeasePath and EventPath (`docs/VERTICALS.md`, everything under `*/verticals/`), one Next.js app on Vercel and one Supabase project (`cdlhqovdfiolkpfzbtqu`).
 
 ## Definition of done
 
