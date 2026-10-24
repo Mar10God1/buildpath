@@ -13,12 +13,13 @@ export type ModulePreference = { module_key:string; visibility:"visible"|"availa
 export type ModuleKey =
   | "home"|"timeline"|"documents"|"ask"|"field_capture"|"schedule"|"cost"|"vendors"|"selections"
   | "inspections"|"rfis"|"submittals"|"change_orders"|"daily_reports"|"compliance"
-  | "procurement"|"safety"|"commissioning"|"people"|"project_data"|"conversations";
+  | "procurement"|"safety"|"commissioning"|"people"|"project_data"|"conversations"|"communications";
 
 export type ModuleDecision={key:ModuleKey;label:string;icon:string;visibility:"visible"|"available"|"hidden";reason:string;priority:number};
 
 const meta:Record<ModuleKey,{label:string;icon:string}>={
  conversations:{label:"Conversations",icon:"◉"},
+ communications:{label:"Calls & Texts",icon:"◌"},
  home:{label:"Home",icon:"⌂"},timeline:{label:"Timeline",icon:"◷"},documents:{label:"Documents",icon:"▤"},ask:{label:"Ask BuildPath",icon:"?"},field_capture:{label:"Field Capture",icon:"＋"},
  schedule:{label:"Schedule",icon:"▣"},cost:{label:"Cost",icon:"$"},vendors:{label:"Vendors & Subs",icon:"♟"},selections:{label:"Selections",icon:"◇"},
  inspections:{label:"Inspections",icon:"✓"},rfis:{label:"RFIs",icon:"?"},submittals:{label:"Submittals",icon:"▧"},change_orders:{label:"Change Orders",icon:"△"},
@@ -52,6 +53,7 @@ export function buildWorkspace(p:AdaptiveProject,reqs:ProjectRequirement[]=[],pr
  push(m,"timeline","visible",95,"Connected project history");
  push(m,"documents","visible",94,"Evidence is the source of project truth");
  push(m,"conversations","visible",93,"Capture speech and review evidence-backed draft actions");
+ push(m,"communications","visible",94,"Customer calls, texts and follow-ups");
  push(m,"ask","visible",93,"Project intelligence");
  push(m,"field_capture","visible",90,"Photos, voice notes and receipts from the site");
  push(m,"daily_reports","visible",86,"BuildPath writes the daily log from field captures");

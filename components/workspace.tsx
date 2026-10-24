@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { BuildPathLogo } from "@/components/buildpath-logo";
 import { ConversationIntelligence } from "@/components/conversation-intelligence";
+import { Communications } from "@/components/communications";
 import { AdaptiveSettings } from "@/components/adaptive-settings";
 import { getProjectVisual } from "@/lib/project-visuals";
 import { ProjectScheduleTimeline, categoryForEvent, type EventCategory } from "@/components/project-schedule-timeline";
@@ -22,6 +23,7 @@ type VendorSummary={id:string;legal_name:string|null;compliance_status:string;pa
 
 function moduleAllowed(key:ModuleKey, permissions:PermissionSet){
  if(key==="conversations")return permissions.view_documents;
+ if(key==="communications")return permissions.view_documents;
  if(key==="home")return permissions.view_project;
  if(key==="timeline"||key==="schedule"||key==="ask")return permissions.view_timeline;
  if(key==="documents")return permissions.view_documents;
@@ -36,6 +38,7 @@ function moduleAllowed(key:ModuleKey, permissions:PermissionSet){
 }
 function moduleSection(key:ModuleKey){
  if(key==="conversations")return"Conversations";
+ if(key==="communications")return"Calls & Texts";
  if(key==="home")return"Overview";
  if(key==="timeline")return"Timeline";
  if(key==="documents")return"Documents";
@@ -117,6 +120,7 @@ export function Workspace(){
    <header className="topbar" style={{backgroundImage:"linear-gradient(90deg,rgba(10,11,12,.88),rgba(10,11,12,.54) 55%,rgba(10,11,12,.35)),url("+JSON.stringify(heroImage||visual.image)+")"}}><div><p className="eyebrow">{visual.eyebrow}</p><h1>{visual.headline}</h1><p>{visual.subhead}</p></div></header><section className="project-ribbon"><div><small>Job</small><strong>{project.name}</strong></div><div className="project-ribbon-meta"><span>{location||"Location not set"}</span><span>{project.project_type||"Project"}</span><span>{money(project.original_budget)}</span></div><button onClick={()=>setSection("Project Data")}>Job details →</button></section>
    {error&&<div className="form-message">{error}</div>}
    {section==="Overview"&&<Overview project={project} companies={companies} people={people} evidence={evidence} events={events} vendors={vendors} visibleModules={adaptiveModules.filter(m=>m.visibility==="visible"&&moduleAllowed(m.key,access))} go={setSection}/>}
+   {section==="Calls & Texts"&&access.view_documents&&<Communications key={project.id} projectId={project.id}/>}
    {section==="Timeline"&&access.view_timeline&&<Timeline project={project} events={events} canEdit={access.edit_timeline} refresh={()=>load(project)}/>}
    {section==="Ask BuildPath"&&access.view_timeline&&<Ask project={project} companies={companies} evidence={evidence} events={events}/>}
    {section==="People & Companies"&&access.view_people&&<PeopleCompanies project={project} companies={companies} people={people} canManage={access.manage_people} refresh={()=>load(project)}/>}
