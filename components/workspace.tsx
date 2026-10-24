@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { BuildPathLogo } from "@/components/buildpath-logo";
+import { ConversationIntelligence } from "@/components/conversation-intelligence";
 import { AdaptiveSettings } from "@/components/adaptive-settings";
 import { getProjectVisual } from "@/lib/project-visuals";
 import { ProjectScheduleTimeline, categoryForEvent, type EventCategory } from "@/components/project-schedule-timeline";
@@ -20,6 +21,7 @@ type EventRow={id:string;event_type:string;title:string;description:string|null;
 type VendorSummary={id:string;legal_name:string|null;compliance_status:string;payment_enrollment_status:string;contact_name:string|null;contact_email:string|null};
 
 function moduleAllowed(key:ModuleKey, permissions:PermissionSet){
+ if(key==="conversations")return permissions.view_documents;
  if(key==="home")return permissions.view_project;
  if(key==="timeline"||key==="schedule"||key==="ask")return permissions.view_timeline;
  if(key==="documents")return permissions.view_documents;
@@ -33,6 +35,7 @@ function moduleAllowed(key:ModuleKey, permissions:PermissionSet){
  return permissions.view_project;
 }
 function moduleSection(key:ModuleKey){
+ if(key==="conversations")return"Conversations";
  if(key==="home")return"Overview";
  if(key==="timeline")return"Timeline";
  if(key==="documents")return"Documents";
@@ -118,6 +121,7 @@ export function Workspace(){
    {section==="Ask BuildPath"&&access.view_timeline&&<Ask project={project} companies={companies} evidence={evidence} events={events}/>}
    {section==="People & Companies"&&access.view_people&&<PeopleCompanies project={project} companies={companies} people={people} canManage={access.manage_people} refresh={()=>load(project)}/>}
    {section==="Documents"&&access.view_documents&&<Documents project={project} evidence={evidence} canUpload={access.upload_documents} refresh={()=>load(project)}/>}
+   {section==="Conversations"&&access.view_documents&&<ConversationIntelligence key={project.id} projectId={project.id}/>}
    {section==="Costs"&&access.view_costs&&<Costs project={project} events={events}/>}
    {section==="Schedule"&&access.view_timeline&&<Schedule project={project} events={events}/>}
    {section.startsWith("Adaptive:")&&moduleAllowed(section.slice(9) as ModuleKey,access)&&<AdaptivePlaceholder moduleKey={section.slice(9) as ModuleKey} project={adaptiveProject} events={events} evidence={evidence}/>}

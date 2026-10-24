@@ -5,10 +5,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:conversations": "node --experimental-strip-types --test tests/conversation-intelligence.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",
+    "@huggingface/transformers": "3.8.1",
     "@supabase/supabase-js": "2.117.2",
     "next": "^16.0.0",
     "pdf-parse": "2.4.5",
