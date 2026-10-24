@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { BuildPathLogo } from "@/components/buildpath-logo";
+import { ConversationIntelligence } from "@/components/conversation-intelligence";
 import { Communications } from "@/components/communications";
 import { AdaptiveSettings } from "@/components/adaptive-settings";
 import { getProjectVisual } from "@/lib/project-visuals";
@@ -21,6 +22,7 @@ type EventRow={id:string;event_type:string;title:string;description:string|null;
 type VendorSummary={id:string;legal_name:string|null;compliance_status:string;payment_enrollment_status:string;contact_name:string|null;contact_email:string|null};
 
 function moduleAllowed(key:ModuleKey, permissions:PermissionSet){
+ if(key==="conversations")return permissions.view_documents;
  if(key==="communications")return permissions.view_documents;
  if(key==="home")return permissions.view_project;
  if(key==="timeline"||key==="schedule"||key==="ask")return permissions.view_timeline;
@@ -35,6 +37,7 @@ function moduleAllowed(key:ModuleKey, permissions:PermissionSet){
  return permissions.view_project;
 }
 function moduleSection(key:ModuleKey){
+ if(key==="conversations")return"Conversations";
  if(key==="communications")return"Calls & Texts";
  if(key==="home")return"Overview";
  if(key==="timeline")return"Timeline";
@@ -122,6 +125,7 @@ export function Workspace(){
    {section==="Ask BuildPath"&&access.view_timeline&&<Ask project={project} companies={companies} evidence={evidence} events={events}/>}
    {section==="People & Companies"&&access.view_people&&<PeopleCompanies project={project} companies={companies} people={people} canManage={access.manage_people} refresh={()=>load(project)}/>}
    {section==="Documents"&&access.view_documents&&<Documents project={project} evidence={evidence} canUpload={access.upload_documents} refresh={()=>load(project)}/>}
+   {section==="Conversations"&&access.view_documents&&<ConversationIntelligence key={project.id} projectId={project.id}/>}
    {section==="Costs"&&access.view_costs&&<Costs project={project} events={events}/>}
    {section==="Schedule"&&access.view_timeline&&<Schedule project={project} events={events}/>}
    {section.startsWith("Adaptive:")&&moduleAllowed(section.slice(9) as ModuleKey,access)&&<AdaptivePlaceholder moduleKey={section.slice(9) as ModuleKey} project={adaptiveProject} events={events} evidence={evidence}/>}
@@ -281,4 +285,3 @@ function AdaptivePlaceholder({moduleKey,project,events,evidence}:{moduleKey:Modu
  return <section className="panel page-panel"><div className="panel-title"><div><p className="eyebrow">PROJECT WORKFLOW</p><h3>{label}</h3></div><span className="status-chip">{project.project_stage||"project"}</span></div><p className="panel-copy">BuildPath surfaced this section because it is relevant to this project or role. Matching project evidence will collect here as the project record grows.</p>{matches.length?<div className="event-list">{matches.map(e=><article key={e.id}><time>{fmtDate(e.start_at)}</time><div><span className="type">{e.event_type}</span><h4>{e.title}</h4><p>{e.description||"No description"}</p></div></article>)}</div>:<Empty text={"No "+label.toLowerCase()+" records have been connected yet."}/>}</section>
 }
 function Empty({text}:{text:string}){return <div className="empty-state"><span>＋</span><p>{text}</p></div>}
-
